@@ -4,7 +4,7 @@
 // 3 0/1
 // 4 1/1
 
-//Curves--------------------------
+//Shift Curves--------------------------
 //1st gear UP = 0.389x +5.11
 //
 //2nd gear DOWN = 0.333x +3.67
@@ -14,25 +14,50 @@
 //3rd gear UP = 1.17x +14.3
 //
 //4th gear DOWN = 1.06x +13.4
-//
+
+//TODO
+//tcc unlock = 20%
+//tcc lockup time 3 seconds 30%-70%
+//tcc unlock on throttle off?
+//unlock tcc as you shift?
+
+//EPC
 //Line Pressure = 0.389x +56.1
+//290hz?
+
+//INPUTS
+int Load_Pin = 15;
+int ISS_Pin = 16;
+int OSS_Pin = 17;
+
+
+//OUTPUTS
+int TCC_Pin = 10;
+int SolA_Pin = 11;
+int SolB_Pin = 12;
+int EPC_Pin = 13;
+
+//Variables
+int Load = digitalRead(Load_Pin);
+int ISS = digitalRead(ISS_Pin);
+int OSS = digitalRead(OSS_Pin);
+
 
 void setup() {
-  pinMode(2, OUTPUT);
-  pinMode(1, INPUT);
-  digitalWrite(2, LOW);
-}
-int count = 0;
-void loop() {
-  int val = digitalRead(4);
-  if(val){
-    count = count + 1;
-  }
-  if(count ==4){
-    digitalWrite(2, HIGH);
-  }
+  pinMode(TCC_Pin, OUTPUT);
+  pinMode(SolA_Pin, OUTPUT);
+  pinMode(SolB_Pin, OUTPUT);
+  pinMode(EPC_Pin, OUTPUT);
 
-    while(val == 1 && digitalRead(1)){
+  pinMode(Load_Pin, INPUT);
+  pinMode(ISSP_in, INPUT);
+  pinMode(OSS_Pin, INPUT);
+
+
+
 }
-    digitalWrite(2, LOW);
-    }
+
+
+void loop() {
+  
+}
