@@ -29,19 +29,37 @@
 int Load_Pin = 15;
 int ISS_Pin = 16;
 int OSS_Pin = 17;
-
+int LinePressure_Pin = 18;
+int EPCPressure_Pin = 18;
 
 //OUTPUTS
-int TCC_Pin = 10;
-int SolA_Pin = 11;
+int TCC_Pin = 10; //make sure this is an analog pin
+int SolA_Pin = 11; 
 int SolB_Pin = 12;
-int EPC_Pin = 13;
+int EPC_Pin = 13; //make sure this is an analog pin
+
+//Constants
+const int TCC_Max = 0.75 * 255;
+const int TCC_Min = 0.3 * 255;
+const int EPC_Max = 0.75 * 255;
+const int EPC_Min = 0.3 * 255;
+const int Load_Smoothing = 1;
+const int ISS_Smoothing = 1;
+const int OSS_Smoothing = 1;
 
 //Variables
-int Load = digitalRead(Load_Pin);
-int ISS = digitalRead(ISS_Pin);
-int OSS = digitalRead(OSS_Pin);
+int Load [Load_Smoothing];
+int LoadHigh = 0;
+int ISS [ISS_Smoothing];
+int ISSHigh = 0;
+int OSS [OSS_Smoothing];
+int OSSHigh = 0;
 
+unsigned long currentMillis;
+int count = 0;
+
+int CurrentGear = 0;
+int DesiredGear = 0;
 
 void setup() {
   pinMode(TCC_Pin, OUTPUT);
@@ -50,14 +68,37 @@ void setup() {
   pinMode(EPC_Pin, OUTPUT);
 
   pinMode(Load_Pin, INPUT);
-  pinMode(ISSP_in, INPUT);
+  pinMode(ISS_Pin, INPUT);
   pinMode(OSS_Pin, INPUT);
+  pinMode(LinePressure_Pin, INPUT);
+  pinMode(EPCPressure_Pin, INPUT);
 
-
+  //prepare outputs for vehicle startup
+  analogWrite(EPC_Pin, EPC_Max);
+  analogWrite(TCC_Pin, TCC_Max);
+  digitalWrite(SolA_Pin, HIGH);
+  digitalWrite(SolA_Pin, LOW);
 
 }
 
+void measurespeed(){
+  //ignoring ISS
+
+  ISS[count] = digitalRead(ISS_Pin);
+  
+
+  //reset array
+  if(count < ISS_Smoothing)
+    count++;
+  else{
+    count = 0;
+  }
+}
+
+
 
 void loop() {
+  measurespeed();
+  currentMillis = millis();
   
 }
