@@ -26,11 +26,11 @@
 //290hz?
 
 //INPUTS
-int Load_Pin = 15;
-int ISS_Pin = 16;
-int OSS_Pin = 17;
-int LinePressure_Pin = 18;
-int EPCPressure_Pin = 18;
+int Load_Pin = 5;
+int ISS_Pin = 6;
+int OSS_Pin = 7;
+int LinePressure_Pin = 8;
+const byte EPCPressure_Pin = A0;
 
 //OUTPUTS
 int TCC_Pin = 10; //make sure this is an analog pin
@@ -79,6 +79,8 @@ void setup() {
   digitalWrite(SolA_Pin, HIGH);
   digitalWrite(SolA_Pin, LOW);
 
+  test();
+
 }
 
 void measurespeed(){
@@ -95,10 +97,35 @@ void measurespeed(){
   }
 }
 
+void test(){
+  Serial.begin(9600); 
 
+  delay(100);
+  digitalWrite(EPC_Pin,HIGH);
+  delay(100);
+  digitalWrite(EPC_Pin,LOW);
+
+  delay(100);
+  digitalWrite(SolA_Pin,HIGH);
+  delay(100);
+  digitalWrite(SolA_Pin,LOW);
+
+  delay(100);
+  digitalWrite(SolB_Pin,HIGH);
+  delay(100);
+  digitalWrite(SolB_Pin,LOW);
+
+  delay(100);
+  digitalWrite(TCC_Pin,HIGH);
+  delay(100);
+  digitalWrite(TCC_Pin,LOW);
+}
 
 void loop() {
-  measurespeed();
-  currentMillis = millis();
-  
+  //measurespeed();
+  //currentMillis = millis();
+  //test();
+Serial.println(analogRead(EPCPressure_Pin));  
+
+
 }
