@@ -26,17 +26,17 @@
 //290hz?
 
 //INPUTS
-int Load_Pin = 5;
-int ISS_Pin = 6;
-int OSS_Pin = 7;
-int LinePressure_Pin = 8;
+const byte Load_Pin = A4;
+const byte ISS_Pin = A3;
+const byte OSS_Pin = A2;
+const byte LinePressure_Pin = A1;
 const byte EPCPressure_Pin = A0;
 
 //OUTPUTS
-int TCC_Pin = 10; //make sure this is an analog pin
-int SolA_Pin = 11; 
-int SolB_Pin = 12;
-int EPC_Pin = 13; //make sure this is an analog pin
+int TCC_Pin = 9; //make sure this is an analog pin
+int SolA_Pin = 10; 
+int SolB_Pin = 11;
+int EPC_Pin = 6; //make sure this is an analog pin
 
 //Constants
 const int TCC_Max = 0.75 * 255;
@@ -73,14 +73,15 @@ void setup() {
   pinMode(LinePressure_Pin, INPUT);
   pinMode(EPCPressure_Pin, INPUT);
 
+  //RE-ENABLE THIS WHEN YOU ARE READY TO DRIVE!!!!-----------
   //prepare outputs for vehicle startup
-  analogWrite(EPC_Pin, EPC_Max);
-  analogWrite(TCC_Pin, TCC_Max);
-  digitalWrite(SolA_Pin, HIGH);
-  digitalWrite(SolA_Pin, LOW);
+  //analogWrite(EPC_Pin, EPC_Max);
+  //analogWrite(TCC_Pin, TCC_Max);
+  //digitalWrite(SolA_Pin, HIGH);
+  //digitalWrite(SolA_Pin, LOW);
 
-  test();
-
+  //analogtest();
+  //digitaltest();
 }
 
 void measurespeed(){
@@ -97,35 +98,89 @@ void measurespeed(){
   }
 }
 
-void test(){
-  Serial.begin(9600); 
+void digitaltest(){
 
-  delay(100);
   digitalWrite(EPC_Pin,HIGH);
-  delay(100);
+  delay(1000);
   digitalWrite(EPC_Pin,LOW);
 
-  delay(100);
+  delay(1000);
   digitalWrite(SolA_Pin,HIGH);
-  delay(100);
+  delay(1000);
   digitalWrite(SolA_Pin,LOW);
 
-  delay(100);
+  delay(1000);
   digitalWrite(SolB_Pin,HIGH);
-  delay(100);
+  delay(1000);
   digitalWrite(SolB_Pin,LOW);
 
-  delay(100);
+  delay(1000);
   digitalWrite(TCC_Pin,HIGH);
-  delay(100);
+  delay(1000);
   digitalWrite(TCC_Pin,LOW);
 }
+
+void analogtest(){
+
+  delay(1000);
+  analogWrite(TCC_Pin,50);
+  delay(1000);
+  analogWrite(TCC_Pin,100);
+  delay(1000);
+  analogWrite(TCC_Pin,150);
+  delay(1000);
+  analogWrite(TCC_Pin,200);
+  delay(1000);
+  analogWrite(TCC_Pin,250);
+  delay(1000);
+  analogWrite(TCC_Pin,0);
+
+  delay(1000);
+  analogWrite(EPC_Pin,50);
+  delay(1000);
+  analogWrite(EPC_Pin,100);
+  delay(1000);
+  analogWrite(EPC_Pin,150);
+  delay(1000);
+  analogWrite(EPC_Pin,200);
+  delay(1000);
+  analogWrite(EPC_Pin,250);
+  delay(1000);
+  analogWrite(EPC_Pin,0);
+
+  delay(1000);
+  analogWrite(SolA_Pin,50);
+  delay(1000);
+  analogWrite(SolA_Pin,100);
+  delay(1000);
+  analogWrite(SolA_Pin,150);
+  delay(1000);
+  analogWrite(SolA_Pin,200);
+  delay(1000);
+  analogWrite(SolA_Pin,250);
+  delay(1000);
+  analogWrite(SolA_Pin,0);
+
+  delay(1000);
+  analogWrite(SolB_Pin,50);
+  delay(1000);
+  analogWrite(SolB_Pin,100);
+  delay(1000);
+  analogWrite(SolB_Pin,150);
+  delay(1000);
+  analogWrite(SolB_Pin,200);
+  delay(1000);
+  analogWrite(SolB_Pin,250);
+  delay(1000);
+  analogWrite(SolB_Pin,0);
+}
+
 
 void loop() {
   //measurespeed();
   //currentMillis = millis();
   //test();
-Serial.println(analogRead(EPCPressure_Pin));  
+  //Serial.println(analogRead(EPCPressure_Pin));  
 
 
 }
