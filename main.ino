@@ -1,3 +1,4 @@
+#pragma region notes
 // solenoid/clutch apply chart-----
 //  PRN1 1/0
 //  2 0/0
@@ -26,7 +27,9 @@
 // EPC
 // Line Pressure = 0.389x +56.1
 // 290hz?
+#pragma endregion notes
 
+#pragma region variables
 // INPUTS
 const byte Load_Pin = A4;
 const byte ISS_Pin = 3;
@@ -55,23 +58,24 @@ const int OSS_Smoothing = 5;
 
 // Variables
 int Load[Load_Smoothing];
-int LoadHigh = 0;
+// int LoadHigh = 0; not needed?
 
 int ISS[ISS_Smoothing];
-int ISSHigh = 0;
+// int ISSHigh = 0; not needed?
 
 int OSS[OSS_Smoothing];
-int OSS_Speeds[OSS_Smoothing];
+double OSS_Speeds[OSS_Smoothing];
 int OSS_Speed_Count = 0;
 int OSS_Measure_Count = 0;
 int OSSHigh = 0;
 
 // possible overflow in 71.6 minutes. need to accomodate for reset.
-unsigned long previousMillis;
-unsigned long currentMillis;
+unsigned long PreviousMircros;
+unsigned long CurrentMircros;
 
-int CurrentGear = 0;
-int DesiredGear = 0;
+int CurrentGear = 1;
+// int DesiredGear = 0; not needed?
+#pragma endregion variables
 
 void setup()
 {
@@ -97,7 +101,7 @@ void setup()
 // digitalWrite(SolA_Pin, LOW);
 #pragma endregion PinStates
 
-  previousMillis = millis();
+  PreviousMircros = micros();
 
   Serial.begin(9600);
 
@@ -107,37 +111,40 @@ void setup()
 
 void measurespeed()
 {
-  currentMillis = micros();
+  CurrentMircros = micros();
   OSS[OSS_Measure_Count] = digitalRead(OSS_Pin);
-  bool haschanged = false;
+  // bool HasChanged = false; not needed?
   unsigned long timebetween;
   double hz;
   // reset array
-  if (OSS_Measure_Count < OSS_Smoothing)
+
+  if (OSS_Measure_Count < OSS_Smoothing - 1)
     OSS_Measure_Count++;
   else
   {
     OSS_Measure_Count = 0;
   }
 
-  int osssum = 0;
-  for (int i = 0; i < OSS_Smoothing; i++)
-  {
-    osssum += OSS[i];
-  }
-  
-  if (osssum > OSS_Smoothing - 2 and OSSHigh == 0)
+  double osssum = getAverage(OSS, OSS_Smoothing);
+   
+  if (osssum > (2.0 / OSS_Smoothing) and OSSHigh == 0)
   {
     OSSHigh = 1;
     digitalWrite(13, HIGH);
-    timebetween = currentMillis - previousMillis;
+    timebetween = CurrentMircros - PreviousMircros;
     hz = (1.00 / timebetween) * 1000000;
-    double s =  6.283185307  * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio ) / 60);
-    //print speed
-    //Serial.println(s);
+    double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
+    // print speed
+    // Serial.println("speed: " + int(s));
+
+    //  Serial.print("speed:");
+    // Serial.println(OSS_Speed_Count);
 
     OSS_Speeds[OSS_Speed_Count] = s;
-    if (OSS_Speed_Count < OSS_Smoothing)
+    //Serial.println(OSS_Speeds[1]);
+    // Serial.println(OSS_Speeds[OSS_Speed_Count]);
+
+    if (OSS_Speed_Count < OSS_Smoothing -1 )
       OSS_Speed_Count++;
     else
     {
@@ -145,13 +152,12 @@ void measurespeed()
     }
   }
 
-  if (osssum < OSS_Smoothing - 2 and OSSHigh == 1)
+  if (osssum < (2.0 / OSS_Smoothing) and OSSHigh == 1)
   {
     OSSHigh = 0;
     digitalWrite(13, LOW);
-    previousMillis = currentMillis;
+    PreviousMircros = CurrentMircros;
   }
-
 }
 
 void digitaltest()
@@ -233,18 +239,119 @@ void analogtest()
   analogWrite(SolB_Pin, 0);
 }
 
-void osstest()
-{
-}
-
 void loop()
 {
   measurespeed();
+  double speedavg = OSS_Speeds[1];
+  //Serial.println(speedavg);
 
-  
+  // Serial.print(",");
+  // Serial.println("desired gear:" + desiredgear());
+  //  CurrentMircros = Mircros();
+  //  test();
+  //  Serial.println(analogRead(EPCPressure_Pin));
+  //  Serial.println(digitalRead(OSS_Pin));
+}
 
-  // currentMillis = millis();
-  // test();
-  // Serial.println(analogRead(EPCPressure_Pin));
-  // Serial.println(digitalRead(OSS_Pin));
+int desiredgear()
+{
+  // Shift Curves--------------------------
+  // 1st gear UP = 0.389x +5.11
+  //
+  // 2nd gear DOWN = 0.333x +3.67
+  // 2nd gear UP = 0.778x +10.2
+  //
+  // 3rd gear DOWN = 0.722x +8.78
+  // 3rd gear UP = 1.17x +14.3
+  //
+  // 4th gear DOWN = 1.06x +13.4
+
+  double loadavg = getAverage(Load, Load_Smoothing);
+  double speedavg = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
+
+  if (CurrentGear == 1)
+  {
+    if (loadavg * speedavg > (loadavg * 0.389 + 5.11))
+    {
+      return 2;
+    }
+    else
+    {
+      return 1;
+    }
+  }
+  else if (CurrentGear == 2)
+  {
+    if (loadavg * speedavg > (loadavg * 0.778 + 10.2))
+    {
+      return 3;
+    }
+    else if (loadavg * speedavg < (loadavg * 0.333 + 3.67))
+    {
+      return 1;
+    }
+    else
+    {
+      return 2;
+    }
+  }
+  else if (CurrentGear == 3)
+  {
+    if (loadavg * speedavg > (loadavg * 1.17 + 14.3))
+    {
+      return 4;
+    }
+    else if (loadavg * speedavg < (loadavg * 0.722 + 8.78))
+    {
+      return 2;
+    }
+    else
+    {
+      return 3;
+    }
+  }
+  else if (CurrentGear == 4)
+  {
+    if (loadavg * speedavg < (loadavg * 1.06 * 13.4))
+    {
+      return 3;
+    }
+    else
+    {
+      return 4;
+    }
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+double getDoubleAverage(double arr[], int size)
+{
+  int i = 0;
+  double sum = 0;
+  double avg;
+
+  for (i = 0; i < size; ++i)
+  {
+    sum += arr[i];
+  }
+  avg = sum / size;
+
+  return avg;
+}
+
+double getAverage(int arr[], int size)
+{
+  int i, sum = 0;
+  double avg;
+
+  for (i = 0; i < size; ++i)
+  {
+    sum += arr[i];
+  }
+  avg = double(sum) / size;
+
+  return avg;
 }
