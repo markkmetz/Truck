@@ -65,6 +65,8 @@ int ISS[ISS_Smoothing];
 
 int OSS[OSS_Smoothing];
 double OSS_Speeds[OSS_Smoothing];
+double OSS_Avg_Speed;
+bool OSS_Speed_Change = false;
 int OSS_Speed_Count = 0;
 int OSS_Measure_Count = 0;
 int OSSHigh = 0;
@@ -126,7 +128,7 @@ void measurespeed()
   }
 
   double osssum = getAverage(OSS, OSS_Smoothing);
-   
+
   if (osssum > (2.0 / OSS_Smoothing) and OSSHigh == 0)
   {
     OSSHigh = 1;
@@ -135,21 +137,32 @@ void measurespeed()
     hz = (1.00 / timebetween) * 1000000;
     double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
     // print speed
-    // Serial.println("speed: " + int(s));
-
-    //  Serial.print("speed:");
-    // Serial.println(OSS_Speed_Count);
+    //  Serial.println("speed: ");
+    //  Serial.println(s);
 
     OSS_Speeds[OSS_Speed_Count] = s;
-    //Serial.println(OSS_Speeds[1]);
+    //Serial.println(OSS_Speeds[OSS_Speed_Count]);
     // Serial.println(OSS_Speeds[OSS_Speed_Count]);
 
-    if (OSS_Speed_Count < OSS_Smoothing -1 )
+    if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
     else
     {
       OSS_Speed_Count = 0;
     }
+
+    double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
+    if(int(newspeed) != int(OSS_Avg_Speed)){
+      OSS_Speed_Change = true;
+      Serial.println("Speed changed");
+      Serial.println(OSS_Avg_Speed);
+    }else{
+      Serial.println("Speed has not changed");
+      Serial.println(OSS_Avg_Speed);
+      OSS_Speed_Change = false;
+    }
+    OSS_Avg_Speed = newspeed;
+    
   }
 
   if (osssum < (2.0 / OSS_Smoothing) and OSSHigh == 1)
@@ -242,10 +255,23 @@ void analogtest()
 void loop()
 {
   measurespeed();
-  double speedavg = OSS_Speeds[1];
-  //Serial.println(speedavg);
+  if (OSSHigh == 0)
+  {
+    // double s = getDoubleAverage(OSS_Speeds,OSS_Smoothing);
 
-  // Serial.print(",");
+    // Serial.println(OSS_Speeds[0]);
+    //  Serial.print(", ");
+    //     Serial.print(OSS_Speeds[1]);
+    //  Serial.print(", ");
+    //     Serial.print(OSS_Speeds[2]);
+    //  Serial.print(", ");
+    //     Serial.print(OSS_Speeds[3]);
+    //  Serial.print(", ");
+    //  Serial.print(OSS_Speeds[4]);
+    //  Serial.println("a");
+    //  }
+    // Serial.print(",");
+  }
   // Serial.println("desired gear:" + desiredgear());
   //  CurrentMircros = Mircros();
   //  test();
