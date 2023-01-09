@@ -141,8 +141,8 @@ void measurespeed()
     //  Serial.println(s);
 
     OSS_Speeds[OSS_Speed_Count] = s;
-    //Serial.println(OSS_Speeds[OSS_Speed_Count]);
     // Serial.println(OSS_Speeds[OSS_Speed_Count]);
+    //  Serial.println(OSS_Speeds[OSS_Speed_Count]);
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
@@ -152,17 +152,16 @@ void measurespeed()
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if(int(newspeed) != int(OSS_Avg_Speed)){
+    if (int(newspeed) != int(OSS_Avg_Speed))
+    {
       OSS_Speed_Change = true;
-      Serial.println("Speed changed");
-      Serial.println(OSS_Avg_Speed);
-    }else{
-      Serial.println("Speed has not changed");
-      Serial.println(OSS_Avg_Speed);
+    }
+    else
+    {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
-    
+    //Serial.println(OSS_Avg_Speed);
   }
 
   if (osssum < (2.0 / OSS_Smoothing) and OSSHigh == 1)
@@ -255,31 +254,63 @@ void analogtest()
 void loop()
 {
   measurespeed();
-  if (OSSHigh == 0)
+  if (OSS_Avg_Speed < 130 || OSS_Avg_Speed > 0)
   {
-    // double s = getDoubleAverage(OSS_Speeds,OSS_Smoothing);
-
-    // Serial.println(OSS_Speeds[0]);
-    //  Serial.print(", ");
-    //     Serial.print(OSS_Speeds[1]);
-    //  Serial.print(", ");
-    //     Serial.print(OSS_Speeds[2]);
-    //  Serial.print(", ");
-    //     Serial.print(OSS_Speeds[3]);
-    //  Serial.print(", ");
-    //  Serial.print(OSS_Speeds[4]);
-    //  Serial.println("a");
-    //  }
-    // Serial.print(",");
+    if (OSS_Speed_Change)
+    {
+       //Serial.println(OSS_Avg_Speed);
+       CheckShift();
+    }
   }
-  // Serial.println("desired gear:" + desiredgear());
-  //  CurrentMircros = Mircros();
-  //  test();
-  //  Serial.println(analogRead(EPCPressure_Pin));
-  //  Serial.println(digitalRead(OSS_Pin));
 }
 
-int desiredgear()
+void CheckShift()
+{
+  int wantedgear = DesiredGear();
+  if (CurrentGear != wantedgear)
+  {
+    Serial.print("gear: ");
+    Serial.print(wantedgear);
+    Serial.print(",speed: ");
+    Serial.println(OSS_Avg_Speed);
+    Shift(wantedgear);
+  }
+}
+
+void Shift(int wantedgear)
+{
+  // solenoid/clutch apply chart-----
+  //  PRN1 1/0
+  //  2 0/0
+  //  3 0/1
+  //  4 1/1
+  if (wantedgear == 1)
+  {
+    digitalWrite(SolA_Pin, HIGH);
+    digitalWrite(SolB_Pin, LOW);
+    CurrentGear = 1;
+  }
+  else if (wantedgear == 2)
+  {
+    digitalWrite(SolA_Pin, LOW);
+    digitalWrite(SolB_Pin, LOW);
+    CurrentGear = 2;
+  }
+  else if (wantedgear == 3)
+  {
+    digitalWrite(SolA_Pin, LOW);
+    digitalWrite(SolB_Pin, HIGH);
+    CurrentGear = 3;
+  }
+  else if (wantedgear == 4)
+  {
+    digitalWrite(SolA_Pin, HIGH);
+    digitalWrite(SolB_Pin, HIGH);
+    CurrentGear = 4;
+  }
+}
+
+int DesiredGear()
 {
   // Shift Curves--------------------------
   // 1st gear UP = 0.389x +5.11
@@ -292,12 +323,11 @@ int desiredgear()
   //
   // 4th gear DOWN = 1.06x +13.4
 
-  double loadavg = getAverage(Load, Load_Smoothing);
-  double speedavg = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
+  double loadavg = 25;
 
   if (CurrentGear == 1)
   {
-    if (loadavg * speedavg > (loadavg * 0.389 + 5.11))
+    if (OSS_Avg_Speed > (loadavg * 0.389 + 5.11))
     {
       return 2;
     }
@@ -308,11 +338,11 @@ int desiredgear()
   }
   else if (CurrentGear == 2)
   {
-    if (loadavg * speedavg > (loadavg * 0.778 + 10.2))
+    if ( OSS_Avg_Speed > (loadavg * 0.778 + 10.2))
     {
       return 3;
     }
-    else if (loadavg * speedavg < (loadavg * 0.333 + 3.67))
+    else if (OSS_Avg_Speed < (loadavg * 0.333 + 3.67))
     {
       return 1;
     }
@@ -323,11 +353,11 @@ int desiredgear()
   }
   else if (CurrentGear == 3)
   {
-    if (loadavg * speedavg > (loadavg * 1.17 + 14.3))
+    if (OSS_Avg_Speed > (loadavg * 1.17 + 14.3))
     {
       return 4;
     }
-    else if (loadavg * speedavg < (loadavg * 0.722 + 8.78))
+    else if (OSS_Avg_Speed < (loadavg * 0.722 + 8.78))
     {
       return 2;
     }
@@ -338,7 +368,7 @@ int desiredgear()
   }
   else if (CurrentGear == 4)
   {
-    if (loadavg * speedavg < (loadavg * 1.06 * 13.4))
+    if (OSS_Avg_Speed < (loadavg * 1.06 + 13.4))
     {
       return 3;
     }
