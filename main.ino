@@ -23,6 +23,7 @@
 // unlock tcc as you shift?
 // rolling start?
 // time overflow
+// reverse?
 
 // EPC
 // Line Pressure = 0.389x +56.1
@@ -75,6 +76,7 @@ int OSSHigh = 0;
 unsigned long PreviousMircros;
 unsigned long CurrentMircros;
 
+bool shifting = false;
 int CurrentGear = 1;
 // int DesiredGear = 0; not needed?
 #pragma endregion variables
@@ -127,22 +129,20 @@ void measurespeed()
     OSS_Measure_Count = 0;
   }
 
-  double osssum = getAverage(OSS, OSS_Smoothing);
+  double ossavg = getAverage(OSS, OSS_Smoothing);
 
-  if (osssum > (2.0 / OSS_Smoothing) and OSSHigh == 0)
+  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0)
   {
     OSSHigh = 1;
     digitalWrite(13, HIGH);
     timebetween = CurrentMircros - PreviousMircros;
     hz = (1.00 / timebetween) * 1000000;
     double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
-    // print speed
-    //  Serial.println("speed: ");
-    //  Serial.println(s);
 
-    OSS_Speeds[OSS_Speed_Count] = s;
-    // Serial.println(OSS_Speeds[OSS_Speed_Count]);
-    //  Serial.println(OSS_Speeds[OSS_Speed_Count]);
+    if (s < 140 and s > 0)
+      OSS_Speeds[OSS_Speed_Count] = s;
+    else
+      OSS_Speeds[OSS_Speed_Count] = ossavg;
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
@@ -161,10 +161,9 @@ void measurespeed()
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
-    //Serial.println(OSS_Avg_Speed);
   }
 
-  if (osssum < (2.0 / OSS_Smoothing) and OSSHigh == 1)
+  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1)
   {
     OSSHigh = 0;
     digitalWrite(13, LOW);
@@ -254,14 +253,47 @@ void analogtest()
 void loop()
 {
   measurespeed();
-  if (OSS_Avg_Speed < 130 || OSS_Avg_Speed > 0)
-  {
-    if (OSS_Speed_Change)
-    {
-       //Serial.println(OSS_Avg_Speed);
-       CheckShift();
-    }
-  }
+  if (OSS_Speed_Change)
+    CheckShift();
+  else
+    DumpInfo();
+
+    
+}
+
+void DumpInfo()
+{
+  Serial.println("Error: ");
+  Serial.print("OSS 0:");
+  Serial.println(OSS_Speeds[0]);
+  Serial.print("OSS 1:");
+  Serial.println(OSS_Speeds[1]);
+  Serial.print("OSS 2:");
+  Serial.println(OSS_Speeds[2]);
+  Serial.print("OSS 3:");
+  Serial.println(OSS_Speeds[3]);
+  Serial.print("OSS 4:");
+  Serial.println(OSS_Speeds[3]);
+
+  Serial.println("");
+
+  Serial.print("Average speed:");
+  Serial.println(OSS_Avg_Speed);
+
+  Serial.println("");
+
+  Serial.print("prev micros:");
+  Serial.println(PreviousMircros);
+  Serial.print("current micros:");
+  Serial.println(CurrentMircros);
+
+  Serial.println("");
+
+  Serial.print("current gear:");
+  Serial.println(CurrentGear);
+
+  Serial.print("desired gear:");
+  Serial.println(DesiredGear());
 }
 
 void CheckShift()
@@ -284,29 +316,37 @@ void Shift(int wantedgear)
   //  2 0/0
   //  3 0/1
   //  4 1/1
-  if (wantedgear == 1)
+
+  if (!shifting)
   {
-    digitalWrite(SolA_Pin, HIGH);
-    digitalWrite(SolB_Pin, LOW);
-    CurrentGear = 1;
-  }
-  else if (wantedgear == 2)
-  {
-    digitalWrite(SolA_Pin, LOW);
-    digitalWrite(SolB_Pin, LOW);
-    CurrentGear = 2;
-  }
-  else if (wantedgear == 3)
-  {
-    digitalWrite(SolA_Pin, LOW);
-    digitalWrite(SolB_Pin, HIGH);
-    CurrentGear = 3;
-  }
-  else if (wantedgear == 4)
-  {
-    digitalWrite(SolA_Pin, HIGH);
-    digitalWrite(SolB_Pin, HIGH);
-    CurrentGear = 4;
+    if (wantedgear == 1)
+    {
+      digitalWrite(SolA_Pin, HIGH);
+      digitalWrite(SolB_Pin, LOW);
+      shifting = true;
+      CurrentGear = 1;
+    }
+    else if (wantedgear == 2)
+    {
+      digitalWrite(SolA_Pin, LOW);
+      digitalWrite(SolB_Pin, LOW);
+      shifting = true;
+      CurrentGear = 2;
+    }
+    else if (wantedgear == 3)
+    {
+      digitalWrite(SolA_Pin, LOW);
+      digitalWrite(SolB_Pin, HIGH);
+      shifting = true;
+      CurrentGear = 3;
+    }
+    else if (wantedgear == 4)
+    {
+      digitalWrite(SolA_Pin, HIGH);
+      digitalWrite(SolB_Pin, HIGH);
+      shifting = true;
+      CurrentGear = 4;
+    }
   }
 }
 
@@ -338,7 +378,7 @@ int DesiredGear()
   }
   else if (CurrentGear == 2)
   {
-    if ( OSS_Avg_Speed > (loadavg * 0.778 + 10.2))
+    if (OSS_Avg_Speed > (loadavg * 0.778 + 10.2))
     {
       return 3;
     }
@@ -395,7 +435,16 @@ double getDoubleAverage(double arr[], int size)
   }
   avg = sum / size;
 
-  return avg;
+  if (avg > 140)
+  {
+    Serial.println("error at getdoubleaverage()");
+    DumpInfo();
+    return OSS_Avg_Speed;
+  }
+  else
+  {
+    return avg;
+  }
 }
 
 double getAverage(int arr[], int size)
@@ -408,6 +457,10 @@ double getAverage(int arr[], int size)
     sum += arr[i];
   }
   avg = double(sum) / size;
-
+  if (avg > 140)
+  {
+    Serial.println("error at getAverage()");
+    DumpInfo();
+  }
   return avg;
 }
