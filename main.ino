@@ -1,26 +1,10 @@
 #pragma region notes
-// solenoid/clutch apply chart-----
-//  PRN1 1/0
-//  2 0/0
-//  3 0/1
-//  4 1/1
-
-// Shift Curves--------------------------
-// 1st gear UP = 0.389x +5.11
-//
-// 2nd gear DOWN = 0.333x +3.67
-// 2nd gear UP = 0.778x +10.2
-//
-// 3rd gear DOWN = 0.722x +8.78
-// 3rd gear UP = 1.17x +14.3
-//
-// 4th gear DOWN = 1.06x +13.4
-
 // TODO
+// tcc lockup on high heat
 // tcc unlock = 20%
 // tcc lockup time 3 seconds 30%-70%
 // tcc unlock on throttle off?
-// unlock tcc as you shift?
+// unlock tcc before you shift 0.1 seconds
 // rolling start?
 // time overflow
 // reverse?
@@ -51,14 +35,16 @@ const double TireSize = 33;
 
 const int TCC_Max = 0.75 * 255;
 const int TCC_Min = 0.3 * 255;
-const int EPC_Max = 0.75 * 255;
-const int EPC_Min = 0.3 * 255;
+const double TCC_Seconds_Before = .1;
+
 const int Load_Smoothing = 1;
 const int ISS_Smoothing = 5;
 const int OSS_Smoothing = 5;
 
 // Variables
-int Load[Load_Smoothing];
+double Load[Load_Smoothing];
+int Load_Measure_count = 0;
+double Load_Avg;
 // int LoadHigh = 0; not needed?
 
 int ISS[ISS_Smoothing];
@@ -73,8 +59,12 @@ int OSS_Measure_Count = 0;
 int OSSHigh = 0;
 
 // possible overflow in 71.6 minutes. need to accomodate for reset.
-unsigned long PreviousMircros;
-unsigned long CurrentMircros;
+//micros is for oss and
+unsigned long OSS_Previous_Mircros;
+unsigned long OSS_Current_Mircros;
+
+unsigned long Load_Previous_Millis;
+unsigned long Load_Current_Millis;
 
 bool shifting = false;
 int CurrentGear = 1;
@@ -105,29 +95,26 @@ void setup()
 // digitalWrite(SolA_Pin, LOW);
 #pragma endregion PinStates
 
-  PreviousMircros = micros();
-
+  OSS_Previous_Mircros = micros();
+  Load_Previous_Millis = millis();
   Serial.begin(9600);
 
   // analogtest();
   // digitaltest();
 }
 
-void measurespeed()
+void MeasureSpeed()
 {
-  CurrentMircros = micros();
+  OSS_Current_Mircros = micros();
   OSS[OSS_Measure_Count] = digitalRead(OSS_Pin);
+  OSS_Measure_Count++;
   // bool HasChanged = false; not needed?
   unsigned long timebetween;
   double hz;
   // reset array
 
-  if (OSS_Measure_Count < OSS_Smoothing - 1)
-    OSS_Measure_Count++;
-  else
-  {
+  if (OSS_Measure_Count == OSS_Smoothing)
     OSS_Measure_Count = 0;
-  }
 
   double ossavg = getAverage(OSS, OSS_Smoothing);
 
@@ -135,7 +122,7 @@ void measurespeed()
   {
     OSSHigh = 1;
     digitalWrite(13, HIGH);
-    timebetween = CurrentMircros - PreviousMircros;
+    timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
     hz = (1.00 / timebetween) * 1000000;
     double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
 
@@ -167,8 +154,25 @@ void measurespeed()
   {
     OSSHigh = 0;
     digitalWrite(13, LOW);
-    PreviousMircros = CurrentMircros;
+    OSS_Previous_Mircros = OSS_Current_Mircros;
   }
+}
+
+void MeasureLoad()
+{
+  Load_Current_Millis = millis();
+  // measure every .1 seconds
+  if(Load_Current_Millis > Load_Previous_Millis + 100){
+    Load[Load_Measure_count] = analogRead(Load_Pin) / 255;
+    Load[Load_Measure_count]++;
+  }
+  
+  if(Load_Measure_count == Load_Smoothing)
+    Load_Measure_count = 0;
+
+  Load_Avg = getDoubleAverage(Load, Load_Smoothing);
+  
+  Load_Previous_Millis = Load_Current_Millis;
 }
 
 void digitaltest()
@@ -252,13 +256,22 @@ void analogtest()
 
 void loop()
 {
-  measurespeed();
+  MeasureLoad();
+  MeasureSpeed();
+
+  RegulateEPC();
+
   if (OSS_Speed_Change)
     CheckShift();
   else
     DumpInfo();
+}
 
-    
+void RegulateEPC()
+{
+  // 0.4x + 56
+  int pwmammount = ((0.4 * Load_Avg) + 56) * 255;
+  analogWrite(EPC_Pin,pwmammount);
 }
 
 void DumpInfo()
@@ -283,9 +296,9 @@ void DumpInfo()
   Serial.println("");
 
   Serial.print("prev micros:");
-  Serial.println(PreviousMircros);
+  Serial.println(OSS_Previous_Mircros);
   Serial.print("current micros:");
-  Serial.println(CurrentMircros);
+  Serial.println(OSS_Current_Mircros);
 
   Serial.println("");
 
