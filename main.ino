@@ -37,7 +37,7 @@ const int TCC_Max = 0.75 * 255;
 const int TCC_Min = 0.3 * 255;
 const double TCC_Seconds_Before = .1;
 
-const int Load_Smoothing = 1;
+const int Load_Smoothing = 5;
 const int ISS_Smoothing = 5;
 const int OSS_Smoothing = 5;
 
@@ -45,10 +45,8 @@ const int OSS_Smoothing = 5;
 double Load[Load_Smoothing];
 int Load_Measure_count = 0;
 double Load_Avg;
-// int LoadHigh = 0; not needed?
 
-int ISS[ISS_Smoothing];
-// int ISSHigh = 0; not needed?
+double ISS[ISS_Smoothing];
 
 int OSS[OSS_Smoothing];
 double OSS_Speeds[OSS_Smoothing];
@@ -66,8 +64,16 @@ unsigned long OSS_Current_Mircros;
 unsigned long Load_Previous_Millis;
 unsigned long Load_Current_Millis;
 
+unsigned long Shift_Previous_Millis;
+unsigned long Shift_Current_Millis;
+
+unsigned long TCC_Previous_Millis;
+unsigned long TCC_Current_Millis;
+
+bool waitingtcc = false;
 bool shifting = false;
 int CurrentGear = 1;
+int WantedGear = 1;
 // int DesiredGear = 0; not needed?
 #pragma endregion variables
 
@@ -171,7 +177,7 @@ void MeasureLoad()
     Load_Measure_count = 0;
 
   Load_Avg = getDoubleAverage(Load, Load_Smoothing);
-  
+
   Load_Previous_Millis = Load_Current_Millis;
 }
 
@@ -261,10 +267,15 @@ void loop()
 
   RegulateEPC();
 
+  DetermineTCCLockup();
+
   if (OSS_Speed_Change)
     CheckShift();
   else
     DumpInfo();
+
+  if(WantedGear != CurrentGear)
+    Shift();
 }
 
 void RegulateEPC()
@@ -272,6 +283,23 @@ void RegulateEPC()
   // 0.4x + 56
   int pwmammount = ((0.4 * Load_Avg) + 56) * 255;
   analogWrite(EPC_Pin,pwmammount);
+}
+
+void DetermineTCCLockup(){
+  TCC_Current_Millis = millis();
+
+  if(TCC_Current_Millis - TCC_Previous_Millis > .25)
+    waitingtcc = false;
+
+  TCC_Previous_Millis = TCC_Current_Millis;
+
+
+  //TODO make this a function of load_avg + temp + rpm
+  if(CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
+    analogWrite(TCC_Pin,TCC_Max);
+  else
+    analogWrite(TCC_Pin,0);
+
 }
 
 void DumpInfo()
@@ -311,18 +339,17 @@ void DumpInfo()
 
 void CheckShift()
 {
-  int wantedgear = DesiredGear();
-  if (CurrentGear != wantedgear)
+  WantedGear = DesiredGear();
+  if (CurrentGear != WantedGear)
   {
     Serial.print("gear: ");
-    Serial.print(wantedgear);
+    Serial.print(WantedGear);
     Serial.print(",speed: ");
     Serial.println(OSS_Avg_Speed);
-    Shift(wantedgear);
   }
 }
 
-void Shift(int wantedgear)
+void Shift()
 {
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
@@ -330,34 +357,38 @@ void Shift(int wantedgear)
   //  3 0/1
   //  4 1/1
 
-  if (!shifting)
+//give tcc time to lock before shifting again?
+  Shift_Current_Millis = millis();
+  if(Shift_Current_Millis - Shift_Previous_Millis > .1){
+    shifting = false;
+  }
+
+  if (!waitingtcc)
   {
-    if (wantedgear == 1)
+    shifting = true;
+    Shift_Previous_Millis = Shift_Current_Millis;
+    if (WantedGear == 1)
     {
       digitalWrite(SolA_Pin, HIGH);
       digitalWrite(SolB_Pin, LOW);
-      shifting = true;
       CurrentGear = 1;
     }
-    else if (wantedgear == 2)
+    else if (WantedGear == 2)
     {
       digitalWrite(SolA_Pin, LOW);
       digitalWrite(SolB_Pin, LOW);
-      shifting = true;
       CurrentGear = 2;
     }
-    else if (wantedgear == 3)
+    else if (WantedGear == 3)
     {
       digitalWrite(SolA_Pin, LOW);
       digitalWrite(SolB_Pin, HIGH);
-      shifting = true;
       CurrentGear = 3;
     }
-    else if (wantedgear == 4)
+    else if (WantedGear == 4)
     {
       digitalWrite(SolA_Pin, HIGH);
       digitalWrite(SolB_Pin, HIGH);
-      shifting = true;
       CurrentGear = 4;
     }
   }
