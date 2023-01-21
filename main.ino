@@ -109,6 +109,24 @@ void setup()
   // digitaltest();
 }
 
+void loop()
+{
+  MeasureLoad();
+  MeasureSpeed();
+
+  RegulateEPC();
+
+  if (OSS_Speed_Change)
+    CheckShift();
+  else
+    DumpInfo();
+
+  //DetermineTCCLockup(); TODO
+
+  if(WantedGear != CurrentGear)
+    Shift();
+}
+
 void MeasureSpeed()
 {
   OSS_Current_Mircros = micros();
@@ -181,103 +199,6 @@ void MeasureLoad()
   Load_Previous_Millis = Load_Current_Millis;
 }
 
-void digitaltest()
-{
-
-  digitalWrite(EPC_Pin, HIGH);
-  delay(1000);
-  digitalWrite(EPC_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(SolA_Pin, HIGH);
-  delay(1000);
-  digitalWrite(SolA_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(SolB_Pin, HIGH);
-  delay(1000);
-  digitalWrite(SolB_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(TCC_Pin, HIGH);
-  delay(1000);
-  digitalWrite(TCC_Pin, LOW);
-}
-
-void analogtest()
-{
-
-  delay(1000);
-  analogWrite(TCC_Pin, 50);
-  delay(1000);
-  analogWrite(TCC_Pin, 100);
-  delay(1000);
-  analogWrite(TCC_Pin, 150);
-  delay(1000);
-  analogWrite(TCC_Pin, 200);
-  delay(1000);
-  analogWrite(TCC_Pin, 250);
-  delay(1000);
-  analogWrite(TCC_Pin, 0);
-
-  delay(1000);
-  analogWrite(EPC_Pin, 50);
-  delay(1000);
-  analogWrite(EPC_Pin, 100);
-  delay(1000);
-  analogWrite(EPC_Pin, 150);
-  delay(1000);
-  analogWrite(EPC_Pin, 200);
-  delay(1000);
-  analogWrite(EPC_Pin, 250);
-  delay(1000);
-  analogWrite(EPC_Pin, 0);
-
-  delay(1000);
-  analogWrite(SolA_Pin, 50);
-  delay(1000);
-  analogWrite(SolA_Pin, 100);
-  delay(1000);
-  analogWrite(SolA_Pin, 150);
-  delay(1000);
-  analogWrite(SolA_Pin, 200);
-  delay(1000);
-  analogWrite(SolA_Pin, 250);
-  delay(1000);
-  analogWrite(SolA_Pin, 0);
-
-  delay(1000);
-  analogWrite(SolB_Pin, 50);
-  delay(1000);
-  analogWrite(SolB_Pin, 100);
-  delay(1000);
-  analogWrite(SolB_Pin, 150);
-  delay(1000);
-  analogWrite(SolB_Pin, 200);
-  delay(1000);
-  analogWrite(SolB_Pin, 250);
-  delay(1000);
-  analogWrite(SolB_Pin, 0);
-}
-
-void loop()
-{
-  MeasureLoad();
-  MeasureSpeed();
-
-  RegulateEPC();
-
-  DetermineTCCLockup();
-
-  if (OSS_Speed_Change)
-    CheckShift();
-  else
-    DumpInfo();
-
-  if(WantedGear != CurrentGear)
-    Shift();
-}
-
 void RegulateEPC()
 {
   // 0.4x + 56
@@ -296,7 +217,10 @@ void DetermineTCCLockup(){
 
   //TODO make this a function of load_avg + temp + rpm
   if(CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
+  {
     analogWrite(TCC_Pin,TCC_Max);
+    waitingtcc = true;
+  }
   else
     analogWrite(TCC_Pin,0);
 
@@ -367,6 +291,7 @@ void Shift()
   {
     shifting = true;
     Shift_Previous_Millis = Shift_Current_Millis;
+    
     if (WantedGear == 1)
     {
       digitalWrite(SolA_Pin, HIGH);
@@ -507,4 +432,83 @@ double getAverage(int arr[], int size)
     DumpInfo();
   }
   return avg;
+}
+
+void digitaltest()
+{
+
+  digitalWrite(EPC_Pin, HIGH);
+  delay(1000);
+  digitalWrite(EPC_Pin, LOW);
+
+  delay(1000);
+  digitalWrite(SolA_Pin, HIGH);
+  delay(1000);
+  digitalWrite(SolA_Pin, LOW);
+
+  delay(1000);
+  digitalWrite(SolB_Pin, HIGH);
+  delay(1000);
+  digitalWrite(SolB_Pin, LOW);
+
+  delay(1000);
+  digitalWrite(TCC_Pin, HIGH);
+  delay(1000);
+  digitalWrite(TCC_Pin, LOW);
+}
+
+void analogtest()
+{
+
+  delay(1000);
+  analogWrite(TCC_Pin, 50);
+  delay(1000);
+  analogWrite(TCC_Pin, 100);
+  delay(1000);
+  analogWrite(TCC_Pin, 150);
+  delay(1000);
+  analogWrite(TCC_Pin, 200);
+  delay(1000);
+  analogWrite(TCC_Pin, 250);
+  delay(1000);
+  analogWrite(TCC_Pin, 0);
+
+  delay(1000);
+  analogWrite(EPC_Pin, 50);
+  delay(1000);
+  analogWrite(EPC_Pin, 100);
+  delay(1000);
+  analogWrite(EPC_Pin, 150);
+  delay(1000);
+  analogWrite(EPC_Pin, 200);
+  delay(1000);
+  analogWrite(EPC_Pin, 250);
+  delay(1000);
+  analogWrite(EPC_Pin, 0);
+
+  delay(1000);
+  analogWrite(SolA_Pin, 50);
+  delay(1000);
+  analogWrite(SolA_Pin, 100);
+  delay(1000);
+  analogWrite(SolA_Pin, 150);
+  delay(1000);
+  analogWrite(SolA_Pin, 200);
+  delay(1000);
+  analogWrite(SolA_Pin, 250);
+  delay(1000);
+  analogWrite(SolA_Pin, 0);
+
+  delay(1000);
+  analogWrite(SolB_Pin, 50);
+  delay(1000);
+  analogWrite(SolB_Pin, 100);
+  delay(1000);
+  analogWrite(SolB_Pin, 150);
+  delay(1000);
+  analogWrite(SolB_Pin, 200);
+  delay(1000);
+  analogWrite(SolB_Pin, 250);
+  delay(1000);
+  analogWrite(SolB_Pin, 0);
 }
