@@ -491,12 +491,12 @@ void DumpInfo()
   Serial.println(CurrentGear);
 
   Serial.print("desired gear:");
-  Serial.println(DesiredGear());
+  Serial.println(CalculateGear());
 }
 
 void CheckShift()
 {
-  CommandedGear = DesiredGear();
+  CommandedGear = CalculateGear();
   if (loggingenabled)
   {
     Serial.print("CheckShift(): current/commanded: ");
@@ -612,7 +612,7 @@ void Shift()
   }
 }
 
-int DesiredGear()
+int CalculateGear()
 {
   // Shift Curves--------------------------
   // 1st gear UP = 0.389x +5.11
