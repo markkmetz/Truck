@@ -1,3 +1,5 @@
+#import manual.ino;
+
 #pragma region notes
 // TODO
 // tcc lockup on high heat
@@ -22,11 +24,14 @@ const byte OSS_Pin = 2;
 const byte LinePressure_Pin = A1;
 const byte EPCPressure_Pin = A0;
 
+bool manualmode = 0;
+String cmd = "";
+
 // OUTPUTS
-int TCC_Pin = 9; // make sure this is an analog pin
+int TCC_Pin = 9;  // make sure this is an analog pin
 int SolA_Pin = 10;
 int SolB_Pin = 11;
-int EPC_Pin = 6; // make sure this is an analog pin
+int EPC_Pin = 6;  // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
@@ -77,8 +82,7 @@ int WantedGear = 1;
 // int DesiredGear = 0; not needed?
 #pragma endregion variables
 
-void setup()
-{
+void setup() {
 #pragma region PinStates
   pinMode(TCC_Pin, OUTPUT);
   pinMode(SolA_Pin, OUTPUT);
@@ -109,26 +113,53 @@ void setup()
   // digitaltest();
 }
 
-void loop()
-{
-  MeasureLoad();
-  MeasureSpeed();
+void loop() {
+  cmd = Serial.read();
 
-  RegulateEPC();
+  if (cmd == "manual")
+    manualmode = 1;
+  else if (cmd == "auto")
+    manualmode = 0;
 
-  if (OSS_Speed_Change)
-    CheckShift();
-  else
-    DumpInfo();
+  if (manualmode) {
+    if (cmd == "1") {
+      WantedGear == 1;
+      Shift();
+    } else if (cmd == "2") {
+      WantedGear == 2;
+      Shift();
+    } else if (cmd == "3") {
+      WantedGear == 3;
+      Shift();
+    } else if (cmd == "4") {
+      WantedGear == 4;
+      Shift();
 
-  //DetermineTCCLockup(); TODO
+    } else if (cmd == "epcon") {
+      WantedGear == 2;
+    } else if (cmd == "epcoff") {
+      WantedGear == 2;
+    }
 
-  if(WantedGear != CurrentGear)
-    Shift();
+  } else {
+    MeasureLoad();
+    MeasureSpeed();
+
+    RegulateEPC();
+
+    if (OSS_Speed_Change)
+      CheckShift();
+    else
+      DumpInfo();
+
+    //DetermineTCCLockup(); TODO
+
+    if (WantedGear != CurrentGear)
+      Shift();
+  }
 }
 
-void MeasureSpeed()
-{
+void MeasureSpeed() {
   OSS_Current_Mircros = micros();
   OSS[OSS_Measure_Count] = digitalRead(OSS_Pin);
   OSS_Measure_Count++;
@@ -142,8 +173,7 @@ void MeasureSpeed()
 
   double ossavg = getAverage(OSS, OSS_Smoothing);
 
-  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0)
-  {
+  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0) {
     OSSHigh = 1;
     digitalWrite(13, HIGH);
     timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
@@ -157,41 +187,35 @@ void MeasureSpeed()
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
-    else
-    {
+    else {
       OSS_Speed_Count = 0;
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if (int(newspeed) != int(OSS_Avg_Speed))
-    {
+    if (int(newspeed) != int(OSS_Avg_Speed)) {
       OSS_Speed_Change = true;
-    }
-    else
-    {
+    } else {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
   }
 
-  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1)
-  {
+  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1) {
     OSSHigh = 0;
     digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
 }
 
-void MeasureLoad()
-{
+void MeasureLoad() {
   Load_Current_Millis = millis();
   // measure every .1 seconds
-  if(Load_Current_Millis > Load_Previous_Millis + 100){
+  if (Load_Current_Millis > Load_Previous_Millis + 100) {
     Load[Load_Measure_count] = analogRead(Load_Pin) / 255;
     Load[Load_Measure_count]++;
   }
-  
-  if(Load_Measure_count == Load_Smoothing)
+
+  if (Load_Measure_count == Load_Smoothing)
     Load_Measure_count = 0;
 
   Load_Avg = getDoubleAverage(Load, Load_Smoothing);
@@ -199,35 +223,30 @@ void MeasureLoad()
   Load_Previous_Millis = Load_Current_Millis;
 }
 
-void RegulateEPC()
-{
+void RegulateEPC() {
   // 0.4x + 56
   int pwmammount = ((0.4 * Load_Avg) + 56) * 255;
-  analogWrite(EPC_Pin,pwmammount);
+  analogWrite(EPC_Pin, pwmammount);
 }
 
-void DetermineTCCLockup(){
+void DetermineTCCLockup() {
   TCC_Current_Millis = millis();
 
-  if(TCC_Current_Millis - TCC_Previous_Millis > .25)
+  if (TCC_Current_Millis - TCC_Previous_Millis > .25)
     waitingtcc = false;
 
   TCC_Previous_Millis = TCC_Current_Millis;
 
 
   //TODO make this a function of load_avg + temp + rpm
-  if(CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
-  {
-    analogWrite(TCC_Pin,TCC_Max);
+  if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting) {
+    analogWrite(TCC_Pin, TCC_Max);
     waitingtcc = true;
-  }
-  else
-    analogWrite(TCC_Pin,0);
-
+  } else
+    analogWrite(TCC_Pin, 0);
 }
 
-void DumpInfo()
-{
+void DumpInfo() {
   Serial.println("Error: ");
   Serial.print("OSS 0:");
   Serial.println(OSS_Speeds[0]);
@@ -261,11 +280,9 @@ void DumpInfo()
   Serial.println(DesiredGear());
 }
 
-void CheckShift()
-{
+void CheckShift() {
   WantedGear = DesiredGear();
-  if (CurrentGear != WantedGear)
-  {
+  if (CurrentGear != WantedGear) {
     Serial.print("gear: ");
     Serial.print(WantedGear);
     Serial.print(",speed: ");
@@ -273,45 +290,36 @@ void CheckShift()
   }
 }
 
-void Shift()
-{
+void Shift() {
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
   //  2 0/0
   //  3 0/1
   //  4 1/1
 
-//give tcc time to lock before shifting again?
+  //give tcc time to lock before shifting again?
   Shift_Current_Millis = millis();
-  if(Shift_Current_Millis - Shift_Previous_Millis > .1){
+  if (Shift_Current_Millis - Shift_Previous_Millis > .1) {
     shifting = false;
   }
 
-  if (!waitingtcc)
-  {
+  if (!waitingtcc) {
     shifting = true;
     Shift_Previous_Millis = Shift_Current_Millis;
-    
-    if (WantedGear == 1)
-    {
+
+    if (WantedGear == 1) {
       digitalWrite(SolA_Pin, HIGH);
       digitalWrite(SolB_Pin, LOW);
       CurrentGear = 1;
-    }
-    else if (WantedGear == 2)
-    {
+    } else if (WantedGear == 2) {
       digitalWrite(SolA_Pin, LOW);
       digitalWrite(SolB_Pin, LOW);
       CurrentGear = 2;
-    }
-    else if (WantedGear == 3)
-    {
+    } else if (WantedGear == 3) {
       digitalWrite(SolA_Pin, LOW);
       digitalWrite(SolB_Pin, HIGH);
       CurrentGear = 3;
-    }
-    else if (WantedGear == 4)
-    {
+    } else if (WantedGear == 4) {
       digitalWrite(SolA_Pin, HIGH);
       digitalWrite(SolB_Pin, HIGH);
       CurrentGear = 4;
@@ -319,8 +327,7 @@ void Shift()
   }
 }
 
-int DesiredGear()
-{
+int DesiredGear() {
   // Shift Curves--------------------------
   // 1st gear UP = 0.389x +5.11
   //
@@ -334,108 +341,74 @@ int DesiredGear()
 
   double loadavg = 25;
 
-  if (CurrentGear == 1)
-  {
-    if (OSS_Avg_Speed > (loadavg * 0.389 + 5.11))
-    {
+  if (CurrentGear == 1) {
+    if (OSS_Avg_Speed > (loadavg * 0.389 + 5.11)) {
       return 2;
-    }
-    else
-    {
+    } else {
       return 1;
     }
-  }
-  else if (CurrentGear == 2)
-  {
-    if (OSS_Avg_Speed > (loadavg * 0.778 + 10.2))
-    {
+  } else if (CurrentGear == 2) {
+    if (OSS_Avg_Speed > (loadavg * 0.778 + 10.2)) {
       return 3;
-    }
-    else if (OSS_Avg_Speed < (loadavg * 0.333 + 3.67))
-    {
+    } else if (OSS_Avg_Speed < (loadavg * 0.333 + 3.67)) {
       return 1;
-    }
-    else
-    {
+    } else {
       return 2;
     }
-  }
-  else if (CurrentGear == 3)
-  {
-    if (OSS_Avg_Speed > (loadavg * 1.17 + 14.3))
-    {
+  } else if (CurrentGear == 3) {
+    if (OSS_Avg_Speed > (loadavg * 1.17 + 14.3)) {
       return 4;
-    }
-    else if (OSS_Avg_Speed < (loadavg * 0.722 + 8.78))
-    {
+    } else if (OSS_Avg_Speed < (loadavg * 0.722 + 8.78)) {
       return 2;
-    }
-    else
-    {
+    } else {
       return 3;
     }
-  }
-  else if (CurrentGear == 4)
-  {
-    if (OSS_Avg_Speed < (loadavg * 1.06 + 13.4))
-    {
+  } else if (CurrentGear == 4) {
+    if (OSS_Avg_Speed < (loadavg * 1.06 + 13.4)) {
       return 3;
-    }
-    else
-    {
+    } else {
       return 4;
     }
-  }
-  else
-  {
+  } else {
     return 0;
   }
 }
 
-double getDoubleAverage(double arr[], int size)
-{
+double getDoubleAverage(double arr[], int size) {
   int i = 0;
   double sum = 0;
   double avg;
 
-  for (i = 0; i < size; ++i)
-  {
+  for (i = 0; i < size; ++i) {
     sum += arr[i];
   }
   avg = sum / size;
 
-  if (avg > 140)
-  {
+  if (avg > 140) {
     Serial.println("error at getdoubleaverage()");
     DumpInfo();
     return OSS_Avg_Speed;
-  }
-  else
-  {
+  } else {
     return avg;
   }
 }
 
-double getAverage(int arr[], int size)
-{
+double getAverage(int arr[], int size) {
   int i, sum = 0;
   double avg;
 
-  for (i = 0; i < size; ++i)
-  {
+  for (i = 0; i < size; ++i) {
     sum += arr[i];
   }
   avg = double(sum) / size;
-  if (avg > 140)
-  {
+  if (avg > 140) {
     Serial.println("error at getAverage()");
     DumpInfo();
   }
   return avg;
 }
 
-void digitaltest()
-{
+void digitaltest() {
 
   digitalWrite(EPC_Pin, HIGH);
   delay(1000);
@@ -457,8 +430,7 @@ void digitaltest()
   digitalWrite(TCC_Pin, LOW);
 }
 
-void analogtest()
-{
+void analogtest() {
 
   delay(1000);
   analogWrite(TCC_Pin, 50);
