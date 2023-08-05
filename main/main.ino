@@ -1,3 +1,19 @@
+struct curve
+{
+  String curvename;
+  float y0;
+  float y100;
+  float slope;
+};
+
+curve defaultcurves[6] = {
+    {"1UP", 5.11, 44.01},
+    {"2DOWN", 3.67, 36.67},
+    {"2UP", 10.2, 88},
+    {"3DOWN", 8.78, 80.98},
+    {"3UP", 14.3, 131.3},
+    {"4DOWN", 13.4, 119.4}};
+
 #pragma region notes
 // TODO
 // tcc lockup on high heat
@@ -15,6 +31,7 @@
 #pragma endregion notes
 
 #pragma region variables
+
 // INPUTS
 const byte Load_Pin = A4;
 const byte ISS_Pin = 3;
@@ -114,8 +131,15 @@ void setup()
   Load_Previous_Millis = millis();
   Serial.begin(9600);
 
-  // analogtest();
-  // digitaltest();
+  if (!verifycurves())
+  {
+    Serial.println("Error with shift curves. Halting execution.");
+    while (1 == 2)
+    {
+      delay(1000);
+    }
+  }
+
 }
 
 void loop()
@@ -269,7 +293,44 @@ void loop()
       Serial.println(enabletestshifting);
       break;
     }
-    
+    case 118: // v --verify curves
+    {
+      if (verifycurves())
+      {
+        Serial.println("Shift curves good.");
+      }
+      else
+      {
+        Serial.println("Error with shift curves");
+      }
+      break;
+    }
+    case 43: // + --shift y int of curves up by 2
+    {
+      for (int i = 0; i < 6; i++)
+        defaultcurves[i].y0 = defaultcurves[i].y0 + 2;
+
+      Serial.println("curves shifted UP. verifying new curves");
+      if (verifycurves())
+        Serial.println("Shift curves good.");
+      else
+        Serial.println("Error with shift curves");
+
+      break;
+    }
+    case 45: // -    -shift y int of curves down by 2
+    {
+      for (int i = 0; i < 6; i++)
+        defaultcurves[i].y0 = defaultcurves[i].y0 - 2;
+
+      Serial.println("curves shifted DOWN. verifying new curves");
+      if (verifycurves())
+        Serial.println("Shift curves good.");
+      else
+        Serial.println("Error with shift curves");
+
+      break;
+    }
     default: // command not found
     {
       if (cmd != -1)
@@ -290,8 +351,9 @@ void loop()
       RegulateEPC();
     }
 
-    if(enabletestshifting){
-      if(CommandedGear != CurrentGear)
+    if (enabletestshifting)
+    {
+      if (CommandedGear != CurrentGear)
         Shift();
     }
 
@@ -543,7 +605,7 @@ void Shift()
   shifting = true;
   Shift_Previous_Millis = Shift_Current_Millis;
 
-#pragma region Shifting logic sanity check
+#pragma region redundant value checks
   if (CurrentGear - CommandedGear > 1)
   {
     CommandedGear = CurrentGear - 1;
@@ -834,4 +896,44 @@ void analogtest()
   analogWrite(SolB_Pin, 250);
   delay(1000);
   analogWrite(SolB_Pin, 0);
+}
+
+bool verifycurves()
+{
+  // the previous upshift curve will always be above the next gears down shift
+  // for example: 1 up has a higher y val than 2 down
+
+  float prevslope = 0;
+  for (curve c : defaultcurves)
+  {
+    c.slope = (c.y100 - c.y0) / 100;
+
+    if (loggingenabled)
+    {
+      Serial.print(c.curvename);
+      Serial.print(",");
+      Serial.print(c.y0);
+      Serial.print(",");
+      Serial.print(c.y100);
+      Serial.print(",");
+      Serial.println(c.slope);
+    }
+
+    if (c.slope < prevslope)
+      return false;
+  }
+
+  if (defaultcurves[0].y0 < defaultcurves[1].y0)
+    return false;
+  if (defaultcurves[2].y0 < defaultcurves[3].y0)
+    return false;
+  if (defaultcurves[4].y0 < defaultcurves[5].y0)
+    return false;
+
+  if (defaultcurves[0].y0 > defaultcurves[2].y0)
+    return false;
+  if (defaultcurves[2].y0 > defaultcurves[4].y0)
+    return false;
+
+  return true;
 }
