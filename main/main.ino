@@ -1,5 +1,4 @@
-struct curve
-{
+struct curve {
   String curvename;
   float y0;
   float y100;
@@ -7,12 +6,13 @@ struct curve
 };
 
 curve defaultcurves[6] = {
-    {"1UP", 5.11, 44.01},
-    {"2DOWN", 3.67, 36.67},
-    {"2UP", 10.2, 88},
-    {"3DOWN", 8.78, 80.98},
-    {"3UP", 14.3, 131.3},
-    {"4DOWN", 13.4, 119.4}};
+  { "1UP", 5.11, 44.01 },
+  { "2DOWN", 3.67, 36.67 },
+  { "2UP", 10.2, 88 },
+  { "3DOWN", 8.78, 80.98 },
+  { "3UP", 14.3, 131.3 },
+  { "4DOWN", 13.4, 119.4 }
+};
 
 #pragma region notes
 // TODO
@@ -40,10 +40,10 @@ const byte LinePressure_Pin = A1;
 const byte EPCPressure_Pin = A0;
 
 // OUTPUTS
-int TCC_Pin = 9; // make sure this is an analog pin
+int TCC_Pin = 9;  // make sure this is an analog pin
 int SolA_Pin = 10;
 int SolB_Pin = 11;
-int EPC_Pin = 6; // make sure this is an analog pin
+int EPC_Pin = 6;  // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
@@ -58,11 +58,14 @@ const int Load_Smoothing = 5;
 const int ISS_Smoothing = 5;
 const int OSS_Smoothing = 5;
 
+const int EPC_Start_Time = 50;
+int EPC_Start_PWM = 220;
+
 // Variables
 double Load[Load_Smoothing];
 int Load_Measure_count = 0;
 double Load_Avg = 0;
-bool Load_Change = false; // not used except for testing? TODO
+bool Load_Change = false;  // not used except for testing? TODO
 
 double ISS[ISS_Smoothing];
 
@@ -98,13 +101,16 @@ int cmd = -1;
 bool waitingtcc = false;
 bool shifting = false;
 int CurrentGear = 1;
+
+unsigned long EPC_Start_Millis;
+
 int EPCPWM = 0;
+
 int CommandedGear = 1;
 // int DesiredGear = 0; not needed?
 #pragma endregion variables
 
-void setup()
-{
+void setup() {
 #pragma region PinStates
   pinMode(TCC_Pin, OUTPUT);
   pinMode(SolA_Pin, OUTPUT);
@@ -131,241 +137,226 @@ void setup()
   Load_Previous_Millis = millis();
   Serial.begin(9600);
 
-  if (!verifycurves())
-  {
+  if (!verifycurves()) {
     Serial.println("Error with shift curves. Halting execution.");
-    while (1 == 2)
-    {
+    while (1 == 2) {
       delay(1000);
     }
   }
-
 }
 
-void loop()
-{
+void loop() {
   cmd = Serial.read();
 
-  if (cmd == 109) // m --toggle mode
+  if (cmd == 109)  // m --toggle mode
     manualmode = !manualmode;
 
-  if (manualmode)
-  {
-    switch (cmd)
-    {
-    case 49: // 1 --shift to 1st gear
-    {
-      CommandedGear = 1;
-      Shift();
-      break;
-    }
-    case 50: // 2 --shift to 2nd gear
-    {
-      CommandedGear = 2;
-      Shift();
-      break;
-    }
-    case 51: // 3 --shift to 3rd gear
-    {
-      CommandedGear = 3;
-      Shift();
-      break;
-    }
-    case 52: // 4 --shift to 4th gear
-    {
-      CommandedGear = 4;
-      Shift();
-      break;
-    }
-    case 48: // 0 --shift to imaginary 0th gear
-    {
-      CommandedGear = 0;
-      Shift();
-      break;
-    }
-    case 53: // 4 --shift to imaginary 5th gear
-    {
-      CommandedGear = 5;
-      Shift();
-      break;
-    }
-    case 54: // 6 --shift to imaginary 6th gear
-    {
-      CommandedGear = 6;
-      Shift();
-      break;
-    }
-    case 55: // 7 --shift to imaginary -1th gear
-    {
-      CommandedGear = -1;
-      Shift();
-      break;
-    }
-    case 101: // e --toggle epc
-    {
-      enableEPC = !enableEPC;
-      Serial.print("EPC = ");
-      Serial.println(enableEPC);
-      break;
-    }
-    case 116: // t --toggle torque converter TODO
-    {
-      Serial.println("not implemented");
-      break;
-    }
-    case 108: // l --increment fake load data
-    {
-      int newload = Load_Avg + 10;
-      if (newload > 130)
-        newload = -20;
-      for (int i = 0; i < Load_Smoothing; i++)
-      {
-        Load[i] = newload;
-      }
-      Load_Avg = getDoubleAverage(Load, Load_Smoothing);
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
+  if (manualmode) {
+    switch (cmd) {
+      case 49:  // 1 --shift to 1st gear
+        {
+          CommandedGear = 1;
+          Shift();
+          break;
+        }
+      case 50:  // 2 --shift to 2nd gear
+        {
+          CommandedGear = 2;
+          Shift();
+          break;
+        }
+      case 51:  // 3 --shift to 3rd gear
+        {
+          CommandedGear = 3;
+          Shift();
+          break;
+        }
+      case 52:  // 4 --shift to 4th gear
+        {
+          CommandedGear = 4;
+          Shift();
+          break;
+        }
+      case 48:  // 0 --shift to imaginary 0th gear
+        {
+          CommandedGear = 0;
+          Shift();
+          break;
+        }
+      case 53:  // 4 --shift to imaginary 5th gear
+        {
+          CommandedGear = 5;
+          Shift();
+          break;
+        }
+      case 54:  // 6 --shift to imaginary 6th gear
+        {
+          CommandedGear = 6;
+          Shift();
+          break;
+        }
+      case 55:  // 7 --shift to imaginary -1th gear
+        {
+          CommandedGear = -1;
+          Shift();
+          break;
+        }
+      case 101:  // e --toggle epc
+        {
+          enableEPC = !enableEPC;
 
-      Load_Change = true;
-      break;
-    }
-    case 76: // L --decrement fake load data
-    {
-      int newload = Load_Avg - 5;
-      if (newload > 130)
-        newload = -20;
-      for (int i = 0; i < Load_Smoothing; i++)
-      {
-        Load[i] = newload;
-      }
-      Load_Avg = getDoubleAverage(Load, Load_Smoothing);
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
+          //shutdown epc. should probably be a function
+          EPCPWM = 0;
+          analogWrite(EPC_Pin, EPCPWM);
 
-      Load_Change = true;
-      break;
-    }
-    case 99: // c --calc shift
-    {
-      CheckShift();
-      break;
-    }
-    case 111: // o --increment OSS data
-    {
-      OSS_Avg_Speed;
+          Serial.print("EPC = ");
+          Serial.println(enableEPC);
+          break;
+        }
+      case 116:  // t --toggle torque converter TODO
+        {
+          Serial.println("not implemented");
+          break;
+        }
+      case 108:  // l --increment fake load data
+        {
+          int newload = Load_Avg + 10;
+          if (newload > 130)
+            newload = -20;
+          for (int i = 0; i < Load_Smoothing; i++) {
+            Load[i] = newload;
+          }
+          Load_Avg = getDoubleAverage(Load, Load_Smoothing);
+          Serial.print("Load is set to: ");
+          Serial.println(Load_Avg);
 
-      int newspeed = OSS_Avg_Speed + 10;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
+          Load_Change = true;
+          break;
+        }
+      case 76:  // L --decrement fake load data
+        {
+          int newload = Load_Avg - 5;
+          if (newload > 130)
+            newload = -20;
+          for (int i = 0; i < Load_Smoothing; i++) {
+            Load[i] = newload;
+          }
+          Load_Avg = getDoubleAverage(Load, Load_Smoothing);
+          Serial.print("Load is set to: ");
+          Serial.println(Load_Avg);
 
-      OSS_Speed_Change = true;
-      break;
-    }
-    case 79: // O --decrement OSS data
-    {
-      OSS_Avg_Speed;
+          Load_Change = true;
+          break;
+        }
+      case 99:  // c --calc shift
+        {
+          CheckShift();
+          break;
+        }
+      case 111:  // o --increment OSS data
+        {
+          OSS_Avg_Speed;
 
-      int newspeed = OSS_Avg_Speed - 5;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
+          int newspeed = OSS_Avg_Speed + 10;
+          if (newspeed > 130)
+            newspeed = -20;
+          for (int i = 0; i < OSS_Smoothing; i++) {
+            OSS[i] = newspeed;
+          }
+          OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+          Serial.print("Speed is set to: ");
+          Serial.println(OSS_Avg_Speed);
 
-      OSS_Speed_Change = true;
-      break;
-    }
-    case 65: // A --toggle shifting based on checkshift()
-    {
-      enabletestshifting = !enabletestshifting;
-      Serial.print("debug shifting is currently: ");
-      Serial.println(enabletestshifting);
-      break;
-    }
-    case 118: // v --verify curves
-    {
-      if (verifycurves())
-      {
-        Serial.println("Shift curves good.");
-      }
-      else
-      {
-        Serial.println("Error with shift curves");
-      }
-      break;
-    }
-    case 43: // + --shift y int of curves up by 2
-    {
-      for (int i = 0; i < 6; i++)
-        defaultcurves[i].y0 = defaultcurves[i].y0 + 2;
+          OSS_Speed_Change = true;
+          break;
+        }
+      case 79:  // O --decrement OSS data
+        {
+          OSS_Avg_Speed;
 
-      Serial.println("curves shifted UP. verifying new curves");
-      if (verifycurves())
-        Serial.println("Shift curves good.");
-      else
-        Serial.println("Error with shift curves");
+          int newspeed = OSS_Avg_Speed - 5;
+          if (newspeed > 130)
+            newspeed = -20;
+          for (int i = 0; i < OSS_Smoothing; i++) {
+            OSS[i] = newspeed;
+          }
+          OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+          Serial.print("Speed is set to: ");
+          Serial.println(OSS_Avg_Speed);
 
-      break;
-    }
-    case 45: // -    -shift y int of curves down by 2
-    {
-      for (int i = 0; i < 6; i++)
-        defaultcurves[i].y0 = defaultcurves[i].y0 - 2;
+          OSS_Speed_Change = true;
+          break;
+        }
+      case 65:  // A --toggle shifting based on checkshift()
+        {
+          enabletestshifting = !enabletestshifting;
+          Serial.print("debug shifting is currently: ");
+          Serial.println(enabletestshifting);
+          break;
+        }
+      case 118:  // v --verify curves
+        {
+          if (verifycurves()) {
+            Serial.println("Shift curves good.");
+          } else {
+            Serial.println("Error with shift curves");
+          }
+          break;
+        }
+      case 43:  // + --shift y int of curves up by 2
+        {
+          for (int i = 0; i < 6; i++)
+            defaultcurves[i].y0 = defaultcurves[i].y0 + 2;
 
-      Serial.println("curves shifted DOWN. verifying new curves");
-      if (verifycurves())
-        Serial.println("Shift curves good.");
-      else
-        Serial.println("Error with shift curves");
+          Serial.println("curves shifted UP. verifying new curves");
+          if (verifycurves())
+            Serial.println("Shift curves good.");
+          else
+            Serial.println("Error with shift curves");
 
-      break;
+          break;
+        }
+      case 45:  // -    -shift y int of curves down by 2
+        {
+          for (int i = 0; i < 6; i++)
+            defaultcurves[i].y0 = defaultcurves[i].y0 - 2;
+
+          Serial.println("curves shifted DOWN. verifying new curves");
+          if (verifycurves())
+            Serial.println("Shift curves good.");
+          else
+            Serial.println("Error with shift curves");
+
+          break;
+        }
+      default:  // command not found
+        {
+          if (cmd != -1) {
+            Serial.println(cmd);
+          }
+          break;
+        }
     }
-    default: // command not found
-    {
-      if (cmd != -1)
-      {
-        Serial.println(cmd);
-      }
-      break;
-    }
-    }
-    if (cmd != -1)
-    {
+    if (cmd != -1) {
       Serial.println("");
     }
     cmd = -1;
 
-    if (enableEPC)
-    {
+    if (enableEPC) {
       RegulateEPC();
     }
 
-    if (enabletestshifting)
-    {
+    if (enabletestshifting) {
       if (CommandedGear != CurrentGear)
         Shift();
     }
 
-    if (OSS_Speed_Change || Load_Change)
-    {
+    if (OSS_Speed_Change || Load_Change) {
       OSS_Speed_Change = false;
       Load_Change = false;
       CheckShift();
     }
-  }
-  else
-  {
+  } else {
     MeasureLoad();
     MeasureSpeed();
 
@@ -383,8 +374,7 @@ void loop()
   }
 }
 
-void MeasureSpeed()
-{
+void MeasureSpeed() {
   OSS_Current_Mircros = micros();
   OSS[OSS_Measure_Count] = digitalRead(OSS_Pin);
   OSS_Measure_Count++;
@@ -398,8 +388,7 @@ void MeasureSpeed()
 
   double ossavg = getAverage(OSS, OSS_Smoothing);
 
-  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0)
-  {
+  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0) {
     OSSHigh = 1;
     digitalWrite(13, HIGH);
     timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
@@ -413,37 +402,30 @@ void MeasureSpeed()
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
-    else
-    {
+    else {
       OSS_Speed_Count = 0;
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if (int(newspeed) != int(OSS_Avg_Speed))
-    {
+    if (int(newspeed) != int(OSS_Avg_Speed)) {
       OSS_Speed_Change = true;
-    }
-    else
-    {
+    } else {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
   }
 
-  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1)
-  {
+  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1) {
     OSSHigh = 0;
     digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
 }
 
-void MeasureLoad()
-{
+void MeasureLoad() {
   Load_Current_Millis = millis();
   // measure every .1 seconds
-  if (Load_Current_Millis > Load_Previous_Millis + 100)
-  {
+  if (Load_Current_Millis > Load_Previous_Millis + 100) {
     Load[Load_Measure_count] = analogRead(Load_Pin) / 255;
     Load[Load_Measure_count]++;
   }
@@ -456,54 +438,54 @@ void MeasureLoad()
   Load_Previous_Millis = Load_Current_Millis;
 }
 
-void RegulateEPC()
-{
-  if (Load_Avg < 0)
-  {
+void RegulateEPC() {
+  if (Load_Avg < 0) {
     Load_Avg = 0;
-    if (loggingenabled)
-    {
+    if (loggingenabled) {
       Serial.println("RegulateEPC(): LOAD too LOW setting to 0 and continuing..");
     }
   }
 
-  // 0.4x + 56
-  int EPCPWM_temp = ((0.4 * Load_Avg) + 60) * 2.55;
+  unsigned long epctemptime = millis();
+  
+  if (EPCPWM == 0 && EPC_Start_Millis == 0){
+    EPC_Start_Millis = epctemptime;
 
-  if (EPCPWM_temp > 255)
-  {
-    EPCPWM_temp = 255;
     if (loggingenabled)
-    {
-      Serial.print("epc pwm too HIGH setting to 255: ");
-      Serial.println(EPCPWM);
+      Serial.println("epc starting up.. ");
+  } 
+  
+  if( epctemptime - EPC_Start_Millis < EPC_Start_Time) {
+    //Start up
+    
+    analogWrite(EPC_Pin, EPC_Start_PWM);
+
+    if (loggingenabled)
+      Serial.print("epc startup pwm: ");
+      Serial.println(EPC_Start_PWM);
+      
+  } else {
+    EPC_Start_Millis = 0;
+    // 0.4x + 56
+    EPCPWM = ((0.4 * Load_Avg) + 60) * 2.55;
+
+    if (EPCPWM > 255) {
+      EPCPWM = 255;
+      if (loggingenabled) {
+        Serial.print("epc pwm too HIGH setting to 255: ");
+        Serial.println(EPCPWM);
+      }
     }
-  }
 
-  // 5 is a random sensitivity number.
-  int triggerdelta = 5;
-  if (abs(EPCPWM - EPCPWM_temp) > triggerdelta)
-  {
-    analogWrite(EPC_Pin, EPCPWM_temp);
-    EPCPWM = EPCPWM_temp;
-    if (loggingenabled)
-    {
+    analogWrite(EPC_Pin, EPCPWM);
+    if (loggingenabled) {
       Serial.print("epc pwm set to: ");
       Serial.println(EPCPWM);
     }
   }
-  else
-  {
-    if (loggingenabled && 1 == 2) // disabled to skip repeated messages
-    {
-      Serial.print("skipping epc change because diff <  ");
-      Serial.println(triggerdelta);
-    }
-  }
 }
 
-void DetermineTCCLockup()
-{
+void DetermineTCCLockup() {
   TCC_Current_Millis = millis();
 
   if (TCC_Current_Millis - TCC_Previous_Millis > .25)
@@ -512,17 +494,14 @@ void DetermineTCCLockup()
   TCC_Previous_Millis = TCC_Current_Millis;
 
   // TODO make this a function of load_avg + temp + rpm
-  if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
-  {
+  if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting) {
     analogWrite(TCC_Pin, TCC_Max);
     waitingtcc = true;
-  }
-  else
+  } else
     analogWrite(TCC_Pin, 0);
 }
 
-void DumpInfo()
-{
+void DumpInfo() {
   Serial.println("Error: ");
   Serial.print("OSS 0:");
   Serial.println(OSS_Speeds[0]);
@@ -556,11 +535,9 @@ void DumpInfo()
   Serial.println(CalculateGear());
 }
 
-void CheckShift()
-{
+void CheckShift() {
   CommandedGear = CalculateGear();
-  if (loggingenabled)
-  {
+  if (loggingenabled) {
     Serial.print("CheckShift(): current/commanded: ");
     Serial.print(CurrentGear);
     Serial.print(",");
@@ -570,8 +547,7 @@ void CheckShift()
     Serial.print(",");
     Serial.println(Load_Avg);
   }
-  if (CurrentGear != CommandedGear)
-  {
+  if (CurrentGear != CommandedGear) {
     Serial.print("gear: ");
     Serial.print(CommandedGear);
     Serial.print(",speed: ");
@@ -579,16 +555,14 @@ void CheckShift()
   }
 }
 
-void Shift()
-{
+void Shift() {
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
   //  2 0/0
   //  3 0/1
   //  4 1/1
 
-  if (loggingenabled)
-  {
+  if (loggingenabled) {
     Serial.print("Shifting from ");
     Serial.print(CurrentGear);
     Serial.print(" to ");
@@ -597,8 +571,7 @@ void Shift()
 
   // give tcc time to lock before shifting again?
   Shift_Current_Millis = millis();
-  if (Shift_Current_Millis - Shift_Previous_Millis > .1)
-  {
+  if (Shift_Current_Millis - Shift_Previous_Millis > .1) {
     shifting = false;
   }
 
@@ -606,39 +579,32 @@ void Shift()
   Shift_Previous_Millis = Shift_Current_Millis;
 
 #pragma region redundant value checks
-  if (CurrentGear - CommandedGear > 1)
-  {
+  if (CurrentGear - CommandedGear > 1) {
     CommandedGear = CurrentGear - 1;
-    if (loggingenabled)
-    {
+    if (loggingenabled) {
       Serial.println("Error: skipping a DOWN shift gear.");
       Serial.print("New desired gear is: ");
       Serial.println(CommandedGear);
     }
   }
 
-  if (CommandedGear - CurrentGear > 1)
-  {
+  if (CommandedGear - CurrentGear > 1) {
     CommandedGear = CurrentGear + 1;
-    if (loggingenabled)
-    {
+    if (loggingenabled) {
       Serial.println("Error: skipping an UP shift gear.");
       Serial.print("New desired gear is: ");
       Serial.println(CommandedGear);
     }
   }
 
-  if (CommandedGear == CurrentGear)
-  {
+  if (CommandedGear == CurrentGear) {
     if (loggingenabled)
       Serial.println("Error: shifting to same gear.");
     return;
   }
 
-  if (CommandedGear > 4 || CommandedGear < 1)
-  {
-    if (loggingenabled)
-    {
+  if (CommandedGear > 4 || CommandedGear < 1) {
+    if (loggingenabled) {
       Serial.print("Error: shifting to imaginary gear: ");
       Serial.println(CommandedGear);
       Serial.println("Canceling shift..");
@@ -648,34 +614,26 @@ void Shift()
   }
 #pragma endregion
 
-  if (CommandedGear == 1)
-  {
+  if (CommandedGear == 1) {
     digitalWrite(SolA_Pin, HIGH);
     digitalWrite(SolB_Pin, LOW);
     CurrentGear = 1;
-  }
-  else if (CommandedGear == 2)
-  {
+  } else if (CommandedGear == 2) {
     digitalWrite(SolA_Pin, LOW);
     digitalWrite(SolB_Pin, LOW);
     CurrentGear = 2;
-  }
-  else if (CommandedGear == 3)
-  {
+  } else if (CommandedGear == 3) {
     digitalWrite(SolA_Pin, LOW);
     digitalWrite(SolB_Pin, HIGH);
     CurrentGear = 3;
-  }
-  else if (CommandedGear == 4)
-  {
+  } else if (CommandedGear == 4) {
     digitalWrite(SolA_Pin, HIGH);
     digitalWrite(SolB_Pin, HIGH);
     CurrentGear = 4;
   }
 }
 
-int CalculateGear()
-{
+int CalculateGear() {
   // Shift Curves--------------------------
   // 1st gear UP = 0.389x +5.11
   //
@@ -687,140 +645,102 @@ int CalculateGear()
   //
   // 4th gear DOWN = 1.06x +13.4
 
-  if (OSS_Avg_Speed < 0)
-  {
+  if (OSS_Avg_Speed < 0) {
     OSS_Avg_Speed = 0;
 
     if (loggingenabled)
       Serial.println("Speed < 0; setting to 0.");
   }
 
-  if (OSS_Avg_Speed > 120)
-  {
+  if (OSS_Avg_Speed > 120) {
     OSS_Avg_Speed = 120;
 
     if (loggingenabled)
       Serial.println("Speed > 120; setting to 120.");
   }
 
-  if (Load_Avg < 0)
-  {
+  if (Load_Avg < 0) {
     Load_Avg = 0;
 
     if (loggingenabled)
       Serial.println("Load < 0; setting to 0.");
   }
 
-  if (Load_Avg > 100)
-  {
+  if (Load_Avg > 100) {
     Load_Avg = 100;
 
     if (loggingenabled)
       Serial.println("Speed > 100; setting to 100.");
   }
 
-  if (CurrentGear == 1)
-  {
-    if (OSS_Avg_Speed > (Load_Avg * 0.389 + 5.11))
-    {
+  if (CurrentGear == 1) {
+    if (OSS_Avg_Speed > (Load_Avg * 0.389 + 5.11)) {
       return 2;
-    }
-    else
-    {
+    } else {
       return 1;
     }
-  }
-  else if (CurrentGear == 2)
-  {
-    if (OSS_Avg_Speed > (Load_Avg * 0.778 + 10.2))
-    {
+  } else if (CurrentGear == 2) {
+    if (OSS_Avg_Speed > (Load_Avg * 0.778 + 10.2)) {
       return 3;
-    }
-    else if (OSS_Avg_Speed < (Load_Avg * 0.333 + 3.67))
-    {
+    } else if (OSS_Avg_Speed < (Load_Avg * 0.333 + 3.67)) {
       return 1;
-    }
-    else
-    {
+    } else {
       return 2;
     }
-  }
-  else if (CurrentGear == 3)
-  {
-    if (OSS_Avg_Speed > (Load_Avg * 1.17 + 14.3))
-    {
+  } else if (CurrentGear == 3) {
+    if (OSS_Avg_Speed > (Load_Avg * 1.17 + 14.3)) {
       return 4;
-    }
-    else if (OSS_Avg_Speed < (Load_Avg * 0.722 + 8.78))
-    {
+    } else if (OSS_Avg_Speed < (Load_Avg * 0.722 + 8.78)) {
       return 2;
-    }
-    else
-    {
+    } else {
       return 3;
     }
-  }
-  else if (CurrentGear == 4)
-  {
-    if (OSS_Avg_Speed < (Load_Avg * 1.06 + 13.4))
-    {
+  } else if (CurrentGear == 4) {
+    if (OSS_Avg_Speed < (Load_Avg * 1.06 + 13.4)) {
       return 3;
-    }
-    else
-    {
+    } else {
       return 4;
     }
-  }
-  else
-  {
+  } else {
     return 0;
   }
 }
 
-double getDoubleAverage(double arr[], int size)
-{
+double getDoubleAverage(double arr[], int size) {
   int i = 0;
   double sum = 0;
   double avg;
 
-  for (i = 0; i < size; ++i)
-  {
+  for (i = 0; i < size; ++i) {
     sum += arr[i];
   }
   avg = sum / size;
 
-  if (avg > 140)
-  {
+  if (avg > 140) {
     Serial.println("error at getdoubleaverage()");
     DumpInfo();
     return OSS_Avg_Speed;
-  }
-  else
-  {
+  } else {
     return avg;
   }
 }
 
-double getAverage(int arr[], int size)
-{
+double getAverage(int arr[], int size) {
   int i, sum = 0;
   double avg;
 
-  for (i = 0; i < size; ++i)
-  {
+  for (i = 0; i < size; ++i) {
     sum += arr[i];
   }
   avg = double(sum) / size;
-  if (avg > 140)
-  {
+  if (avg > 140) {
     Serial.println("error at getAverage()");
     DumpInfo();
   }
   return avg;
 }
 
-void digitaltest()
-{
+void digitaltest() {
 
   digitalWrite(EPC_Pin, HIGH);
   delay(1000);
@@ -842,8 +762,7 @@ void digitaltest()
   digitalWrite(TCC_Pin, LOW);
 }
 
-void analogtest()
-{
+void analogtest() {
 
   delay(1000);
   analogWrite(TCC_Pin, 50);
@@ -898,18 +817,15 @@ void analogtest()
   analogWrite(SolB_Pin, 0);
 }
 
-bool verifycurves()
-{
+bool verifycurves() {
   // the previous upshift curve will always be above the next gears down shift
   // for example: 1 up has a higher y val than 2 down
 
   float prevslope = 0;
-  for (curve c : defaultcurves)
-  {
+  for (curve c : defaultcurves) {
     c.slope = (c.y100 - c.y0) / 100;
 
-    if (loggingenabled)
-    {
+    if (loggingenabled) {
       Serial.print(c.curvename);
       Serial.print(",");
       Serial.print(c.y0);
