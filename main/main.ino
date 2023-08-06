@@ -1,17 +1,36 @@
-struct curve {
-  String curvename;
+enum CurveName{
+  FirstUP = 0,
+  SecondDown = 1,
+  SecondUp = 2,
+  ThirdDown = 3,
+  ThirdUp = 4,
+  FourthDown = 5
+};
+
+struct Curve {
+  CurveName curvename;
   float y0;
   float y100;
   float slope;
 };
 
-curve defaultcurves[6] = {
-  { "1UP", 5.11, 44.01 },
-  { "2DOWN", 3.67, 36.67 },
-  { "2UP", 10.2, 88 },
-  { "3DOWN", 8.78, 80.98 },
-  { "3UP", 14.3, 131.3 },
-  { "4DOWN", 13.4, 119.4 }
+  // Shift Curves--------------------------
+  // 1st gear UP = 0.389x +5.11
+  //
+  // 2nd gear DOWN = 0.333x +3.67
+  // 2nd gear UP = 0.778x +10.2
+  //
+  // 3rd gear DOWN = 0.722x +8.78
+  // 3rd gear UP = 1.17x +14.3
+  //
+  // 4th gear DOWN = 1.06x +13.4
+Curve defaultcurves[6] = {
+  { FirstUP, 5.11, 44.01 },
+  { SecondDown, 3.67, 36.67 },
+  { SecondUp, 10.2, 88 },
+  { ThirdDown, 8.78, 80.98 },
+  { ThirdUp, 14.3, 131.3 },
+  { FourthDown, 13.4, 119.4 }
 };
 
 #pragma region notes
@@ -634,17 +653,6 @@ void Shift() {
 }
 
 int CalculateGear() {
-  // Shift Curves--------------------------
-  // 1st gear UP = 0.389x +5.11
-  //
-  // 2nd gear DOWN = 0.333x +3.67
-  // 2nd gear UP = 0.778x +10.2
-  //
-  // 3rd gear DOWN = 0.722x +8.78
-  // 3rd gear UP = 1.17x +14.3
-  //
-  // 4th gear DOWN = 1.06x +13.4
-
   if (OSS_Avg_Speed < 0) {
     OSS_Avg_Speed = 0;
 
@@ -674,29 +682,30 @@ int CalculateGear() {
   }
 
   if (CurrentGear == 1) {
-    if (OSS_Avg_Speed > (Load_Avg * 0.389 + 5.11)) {
+    
+    if (OSS_Avg_Speed > (CalcCurveValue(FirstUP,Load_Avg))) {
       return 2;
     } else {
       return 1;
     }
   } else if (CurrentGear == 2) {
-    if (OSS_Avg_Speed > (Load_Avg * 0.778 + 10.2)) {
+    if (OSS_Avg_Speed > (CalcCurveValue(SecondUp,Load_Avg))) {
       return 3;
-    } else if (OSS_Avg_Speed < (Load_Avg * 0.333 + 3.67)) {
+    } else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown,Load_Avg))) {
       return 1;
     } else {
       return 2;
     }
   } else if (CurrentGear == 3) {
-    if (OSS_Avg_Speed > (Load_Avg * 1.17 + 14.3)) {
+    if (OSS_Avg_Speed > (CalcCurveValue(ThirdUp,Load_Avg))) {
       return 4;
-    } else if (OSS_Avg_Speed < (Load_Avg * 0.722 + 8.78)) {
+    } else if (OSS_Avg_Speed < (CalcCurveValue(ThirdDown,Load_Avg))) {
       return 2;
     } else {
       return 3;
     }
   } else if (CurrentGear == 4) {
-    if (OSS_Avg_Speed < (Load_Avg * 1.06 + 13.4)) {
+    if (OSS_Avg_Speed < (CalcCurveValue(FourthDown,Load_Avg))) {
       return 3;
     } else {
       return 4;
@@ -704,6 +713,12 @@ int CalculateGear() {
   } else {
     return 0;
   }
+}
+
+//Calulate the y value (speed) from the shift curves.
+double CalcCurveValue(CurveName cname,double load){
+  int m = defaultcurves[cname].y100 / defaultcurves[cname].y0;
+  return ((m*load) + defaultcurves[cname].y0);
 }
 
 double getDoubleAverage(double arr[], int size) {
@@ -740,89 +755,12 @@ double getAverage(int arr[], int size) {
   return avg;
 }
 
-void digitaltest() {
-
-  digitalWrite(EPC_Pin, HIGH);
-  delay(1000);
-  digitalWrite(EPC_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(SolA_Pin, HIGH);
-  delay(1000);
-  digitalWrite(SolA_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(SolB_Pin, HIGH);
-  delay(1000);
-  digitalWrite(SolB_Pin, LOW);
-
-  delay(1000);
-  digitalWrite(TCC_Pin, HIGH);
-  delay(1000);
-  digitalWrite(TCC_Pin, LOW);
-}
-
-void analogtest() {
-
-  delay(1000);
-  analogWrite(TCC_Pin, 50);
-  delay(1000);
-  analogWrite(TCC_Pin, 100);
-  delay(1000);
-  analogWrite(TCC_Pin, 150);
-  delay(1000);
-  analogWrite(TCC_Pin, 200);
-  delay(1000);
-  analogWrite(TCC_Pin, 250);
-  delay(1000);
-  analogWrite(TCC_Pin, 0);
-
-  delay(1000);
-  analogWrite(EPC_Pin, 50);
-  delay(1000);
-  analogWrite(EPC_Pin, 100);
-  delay(1000);
-  analogWrite(EPC_Pin, 150);
-  delay(1000);
-  analogWrite(EPC_Pin, 200);
-  delay(1000);
-  analogWrite(EPC_Pin, 250);
-  delay(1000);
-  analogWrite(EPC_Pin, 0);
-
-  delay(1000);
-  analogWrite(SolA_Pin, 50);
-  delay(1000);
-  analogWrite(SolA_Pin, 100);
-  delay(1000);
-  analogWrite(SolA_Pin, 150);
-  delay(1000);
-  analogWrite(SolA_Pin, 200);
-  delay(1000);
-  analogWrite(SolA_Pin, 250);
-  delay(1000);
-  analogWrite(SolA_Pin, 0);
-
-  delay(1000);
-  analogWrite(SolB_Pin, 50);
-  delay(1000);
-  analogWrite(SolB_Pin, 100);
-  delay(1000);
-  analogWrite(SolB_Pin, 150);
-  delay(1000);
-  analogWrite(SolB_Pin, 200);
-  delay(1000);
-  analogWrite(SolB_Pin, 250);
-  delay(1000);
-  analogWrite(SolB_Pin, 0);
-}
-
 bool verifycurves() {
   // the previous upshift curve will always be above the next gears down shift
   // for example: 1 up has a higher y val than 2 down
 
   float prevslope = 0;
-  for (curve c : defaultcurves) {
+  for (Curve c : defaultcurves) {
     c.slope = (c.y100 - c.y0) / 100;
 
     if (loggingenabled) {
