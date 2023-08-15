@@ -53,16 +53,16 @@ Curve defaultcurves[6] = {
 
 // INPUTS
 const byte Load_Pin = A4;
-const byte ISS_Pin = 3;
-const byte OSS_Pin = 2;
+const byte ISS_Pin = 8;
+const byte OSS_Pin = 9;
 const byte LinePressure_Pin = A1;
 const byte EPCPressure_Pin = A0;
 
 // OUTPUTS
-int TCC_Pin = 9;  // make sure this is an analog pin
-int SolA_Pin = 10;
-int SolB_Pin = 11;
-int EPC_Pin = 6;  // make sure this is an analog pin
+int TCC_Pin = 3;  // make sure this is an analog pin
+int SolA_Pin = 4;
+int SolB_Pin = 5;
+int EPC_Pin = 2;  // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
@@ -682,7 +682,7 @@ int CalculateGear() {
   }
 
   if (CurrentGear == 1) {
-    
+
     if (OSS_Avg_Speed > (CalcCurveValue(FirstUP,Load_Avg))) {
       return 2;
     } else {
@@ -717,8 +717,8 @@ int CalculateGear() {
 
 //Calulate the y value (speed) from the shift curves.
 double CalcCurveValue(CurveName cname,double load){
-  int m = defaultcurves[cname].y100 / defaultcurves[cname].y0;
-  return ((m*load) + defaultcurves[cname].y0);
+  double m = (defaultcurves[cname].y100 - defaultcurves[cname].y0)/100;
+  return (((m*load) + defaultcurves[cname].y0));
 }
 
 double getDoubleAverage(double arr[], int size) {
