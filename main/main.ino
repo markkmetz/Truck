@@ -497,10 +497,6 @@ void RegulateEPC() {
     }
 
     analogWrite(EPC_Pin, EPCPWM);
-    if (loggingenabled) {
-      Serial.print("epc pwm set to: ");
-      Serial.println(EPCPWM);
-    }
   }
 }
 
