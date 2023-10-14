@@ -1,3 +1,5 @@
+const String Version = "10.13.23.1";
+
 enum CurveName{
   FirstUP = 0,
   SecondDown = 1,
@@ -113,7 +115,7 @@ unsigned long TCC_Current_Millis;
 // testing variables
 bool enableEPC = false;
 bool enabletestshifting = false;
-bool manualmode = 1;
+bool manualmode = 0;
 bool loggingenabled = 1;
 int cmd = -1;
 
@@ -155,6 +157,7 @@ void setup() {
   OSS_Previous_Mircros = micros();
   Load_Previous_Millis = millis();
   Serial.begin(9600);
+  Serial.println(Version);
 
   if (!verifycurves()) {
     Serial.println("Error with shift curves. Halting execution.");
