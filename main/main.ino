@@ -1,3 +1,22 @@
+
+#pragma region notes
+// TODO
+// tcc lockup on high heat
+// tcc unlock = 20%
+// tcc lockup time 3 seconds 30%-70%
+// tcc unlock on throttle off?
+// unlock tcc before you shift 0.1 seconds
+// rolling start?
+// time overflow
+// reverse?
+
+// EPC
+// Line Pressure = 0.389x +56.1
+// 290hz?
+#pragma endregion notes
+
+#pragma region variables
+
 const String Version = "10.13.23.1";
 
 enum CurveName{
@@ -35,23 +54,6 @@ Curve defaultcurves[6] = {
   { FourthDown, 13.4, 119.4 }
 };
 
-#pragma region notes
-// TODO
-// tcc lockup on high heat
-// tcc unlock = 20%
-// tcc lockup time 3 seconds 30%-70%
-// tcc unlock on throttle off?
-// unlock tcc before you shift 0.1 seconds
-// rolling start?
-// time overflow
-// reverse?
-
-// EPC
-// Line Pressure = 0.389x +56.1
-// 290hz?
-#pragma endregion notes
-
-#pragma region variables
 
 // INPUTS
 const byte Load_Pin = A4;
@@ -379,7 +381,11 @@ void loop() {
       CheckShift();
     }
   } else {
-    MeasureLoad();
+    //MeasureLoad();
+    Serial.println("Manually setting load to 10%!!!!");
+    Load_Avg = 10;
+
+
     MeasureSpeed();
 
     RegulateEPC();
