@@ -1,3 +1,9 @@
+const String Version = "10.20.23.1";
+
+#include <SPI.h>
+#include <mcp2515.h>
+//https://github.com/autowp/arduino-mcp2515
+
 
 #pragma region notes
 // TODO
@@ -10,6 +16,14 @@
 // time overflow
 // reverse?
 
+//mcp2515 pinout
+//cs =  48 digital pin
+//si = 51
+//so = 50
+//sck = 52
+//int = n/a
+
+
 // EPC
 // Line Pressure = 0.389x +56.1
 // 290hz?
@@ -17,7 +31,22 @@
 
 #pragma region variables
 
-const String Version = "10.13.23.1";
+struct can_frame canMsg;
+MCP2515 mcp2515(48);
+
+const int tpsindex = 2;  //this is the id of the realtime data broadcasting packet
+const int dataindex = 0;
+struct BroadcastPacket {
+  int tpsvalue;
+  //int dataid = 1523;  //this is the id of the realtime data broadcasting packet
+  int dataid = -13;
+  int other1;
+  int other2;
+  int other3;  
+};
+
+
+BroadcastPacket bp = {};
 
 enum CurveName{
   FirstUP = 0,
@@ -56,7 +85,6 @@ Curve defaultcurves[6] = {
 
 
 // INPUTS
-const byte Load_Pin = A4;
 const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
 const byte LinePressure_Pin = A1;
@@ -77,7 +105,6 @@ const int TCC_Max = 0.75 * 255;
 const int TCC_Min = 0.3 * 255;
 const double TCC_Seconds_Before = .1;
 
-const int Load_Smoothing = 5;
 const int ISS_Smoothing = 5;
 const int OSS_Smoothing = 5;
 
@@ -85,10 +112,8 @@ const int EPC_Start_Time = 50;
 int EPC_Start_PWM = 220;
 
 // Variables
-double Load[Load_Smoothing];
-int Load_Measure_count = 0;
-double Load_Avg = 0;
 bool Load_Change = false;  // not used except for testing? TODO
+double Load_Avg = 0;
 
 double ISS[ISS_Smoothing];
 
@@ -104,9 +129,6 @@ int OSSHigh = 0;
 // micros is for oss and
 unsigned long OSS_Previous_Mircros;
 unsigned long OSS_Current_Mircros;
-
-unsigned long Load_Previous_Millis;
-unsigned long Load_Current_Millis;
 
 unsigned long Shift_Previous_Millis;
 unsigned long Shift_Current_Millis;
@@ -134,33 +156,26 @@ int CommandedGear = 1;
 #pragma endregion variables
 
 void setup() {
-#pragma region PinStates
   pinMode(TCC_Pin, OUTPUT);
   pinMode(SolA_Pin, OUTPUT);
   pinMode(SolB_Pin, OUTPUT);
   pinMode(EPC_Pin, OUTPUT);
 
-  pinMode(Load_Pin, INPUT);
   pinMode(ISS_Pin, INPUT);
   pinMode(OSS_Pin, INPUT);
   pinMode(LinePressure_Pin, INPUT);
   pinMode(EPCPressure_Pin, INPUT);
 
-  pinMode(13, OUTPUT);
+  //Can Bus stuff
+  mcp2515.reset();
+  mcp2515.setBitrate(CAN_500KBPS,MCP_8MHZ);
+  mcp2515.setNormalMode();
 
-// RE-ENABLE THIS WHEN YOU ARE READY TO DRIVE!!!!-----------
-// prepare outputs for vehicle startup
-// analogWrite(EPC_Pin, EPC_Max);
-// analogWrite(TCC_Pin, TCC_Max);
-// digitalWrite(SolA_Pin, HIGH);
-// digitalWrite(SolA_Pin, LOW);
-#pragma endregion PinStates
-
-  OSS_Previous_Mircros = micros();
-  Load_Previous_Millis = millis();
   Serial.begin(9600);
   Serial.println(Version);
 
+  OSS_Previous_Mircros = micros();
+  
   if (!verifycurves()) {
     Serial.println("Error with shift curves. Halting execution.");
     while (1 == 2) {
@@ -171,6 +186,15 @@ void setup() {
 
 void loop() {
   cmd = Serial.read();
+  BroadcastPacket lol = GetCanPacket();
+  if(lol.dataid == 1523){
+Load_Avg = lol.tpsvalue;
+  Serial.println(Load_Avg);
+  
+  }
+  //Serial.print(bp.tpsvalue); //n/a
+  //Serial.println("%");
+
 
   if (cmd == 109)  // m --toggle mode
     manualmode = !manualmode;
@@ -244,13 +268,7 @@ void loop() {
         }
       case 108:  // l --increment fake load data
         {
-          int newload = Load_Avg + 10;
-          if (newload > 130)
-            newload = -20;
-          for (int i = 0; i < Load_Smoothing; i++) {
-            Load[i] = newload;
-          }
-          Load_Avg = getDoubleAverage(Load, Load_Smoothing);
+          Load_Avg = Load_Avg + 10;
           Serial.print("Load is set to: ");
           Serial.println(Load_Avg);
 
@@ -259,13 +277,7 @@ void loop() {
         }
       case 76:  // L --decrement fake load data
         {
-          int newload = Load_Avg - 5;
-          if (newload > 130)
-            newload = -20;
-          for (int i = 0; i < Load_Smoothing; i++) {
-            Load[i] = newload;
-          }
-          Load_Avg = getDoubleAverage(Load, Load_Smoothing);
+          Load_Avg = Load_Avg - 10;
           Serial.print("Load is set to: ");
           Serial.println(Load_Avg);
 
@@ -382,9 +394,8 @@ void loop() {
     }
   } else {
     //MeasureLoad();
-    Serial.println("Manually setting load to 10%!!!!");
-    Load_Avg = 10;
-
+    // Serial.println("Manually setting load to 10%!!!!");
+    // Load_Avg = 10;
 
     MeasureSpeed();
 
@@ -400,6 +411,41 @@ void loop() {
     if (CommandedGear != CurrentGear)
       Shift();
   }
+}
+
+BroadcastPacket GetCanPacket(){
+BroadcastPacket bptemp = {};
+
+  if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
+
+    if(canMsg.can_id == 1523){
+    bptemp.dataid = canMsg.can_id;
+    bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
+
+    bptemp.tpsvalue = bptemp.tpsvalue/10;
+    //Serial.print(bptemp.dataid);
+    //Serial.println(bptemp.tpsvalue);
+    }
+    //TODO filter canid for packettype
+    //Serial.print("CanID "); 
+    //Serial.print(canMsg.can_id); // print ID
+
+    //Serial.print(", CanDLC ");
+    //Serial.print(canMsg.can_dlc); // print DLC
+    
+    //Serial.print(", CanData: ");
+    
+    
+    for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
+      //Serial.print(canMsg.data[i],HEX);
+      //Serial.print(" ");
+    }
+    //Serial.println("");
+  }
+  if(bptemp.dataid == 1523){
+    return bptemp;
+  }
+
 }
 
 void MeasureSpeed() {
@@ -450,22 +496,6 @@ void MeasureSpeed() {
   }
 }
 
-void MeasureLoad() {
-  Load_Current_Millis = millis();
-  // measure every .1 seconds
-  if (Load_Current_Millis > Load_Previous_Millis + 100) {
-    Load[Load_Measure_count] = analogRead(Load_Pin) / 255;
-    Load[Load_Measure_count]++;
-  }
-
-  if (Load_Measure_count == Load_Smoothing)
-    Load_Measure_count = 0;
-
-  Load_Avg = getDoubleAverage(Load, Load_Smoothing);
-
-  Load_Previous_Millis = Load_Current_Millis;
-}
-
 void RegulateEPC() {
   if (Load_Avg < 0) {
     Load_Avg = 0;
@@ -504,7 +534,7 @@ void RegulateEPC() {
         Serial.println(EPCPWM);
       }
     }
-
+    Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
   }
 }
