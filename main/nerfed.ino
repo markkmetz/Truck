@@ -1,7 +1,7 @@
 
 //https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "10.21.23.2";
+const String Version = "10.21.23.3";
 
 #include <SPI.h>
 //#include <mcp2515.h>
@@ -36,7 +36,6 @@ const String Version = "10.21.23.2";
 
 //struct can_frame canMsg;
 //MCP2515 mcp2515(48);
-int buttonpresses = 0;
 const int tpsindex = 2;  //this is the id of the realtime data broadcasting packet
 const int dataindex = 0;
 struct BroadcastPacket {
@@ -415,21 +414,14 @@ void loop() {
       CheckShift();
     }
   } else {
-    //MeasureLoad();
-    // Serial.println("Manually setting load to 10%!!!!");
-    // Load_Avg = 10;
     MeasureSpeed();
 
     RegulateEPC();
 
     if (OSS_Speed_Change) {
-      //Serial.println("here");
       CheckShift();
       OSS_Speed_Change = false;
-      // else
-      //   DumpInfo();
     }
-    // DetermineTCCLockup(); TODO
 
     if (CommandedGear != CurrentGear)
       Shift();
@@ -439,7 +431,6 @@ BroadcastPacket lol = GetCanPacket();
   if (lol.dataid == 1523) {
     
     Load_Avg = lol.tpsvalue;
-    //Serial.println(Load_Avg);
   }
 
 }
@@ -457,52 +448,22 @@ BroadcastPacket GetCanPacket() {
 }
 
 void MeasureSpeed() {
-
-  //Serial.println("here1");
   OSS_Current_Mircros = micros();
   int reading = digitalRead(OSS_Pin);
-  OSS[OSS_Measure_Count] = reading;
-  //Serial.println("Measurespeed");
-  OSS_Measure_Count++;
-  // bool HasChanged = false; not needed?
+
   unsigned long timebetween;
   double hz;
-  // reset array
-
-  //Serial.println("here2");
-  if (OSS_Measure_Count == OSS_Smoothing)
-    OSS_Measure_Count = 0;
-
-  double ossavg = getAverage(OSS, OSS_Smoothing);
-
-  // Serial.print("ossavg:");
-  // Serial.println(ossavg);
-  // Serial.print("OSS_Smoothing:");
-  // Serial.println(OSS_Smoothing);
-  // Serial.print("math:");
-  // Serial.println((2.0 / OSS_Smoothing));
-
-
-
 
   if (reading > .9 and OSSHigh == 0) {
     OSSHigh = 1;
     timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
-    hz = (1.00 / timebetween) * 10000;
-    
-    //hz = 3000;
-
-    Serial.print("-----------hz:");
-    Serial.println(hz);
-    double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
-    Serial.print("speed:");
-    Serial.println(s);
-
+    hz = (1.00 / timebetween) * 1000000;
+    double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60) * .1;
     
     if (s < 140 and s > 0)
       OSS_Speeds[OSS_Speed_Count] = s;
     else
-      OSS_Speeds[OSS_Speed_Count] = ossavg;
+      OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
@@ -511,23 +472,21 @@ void MeasureSpeed() {
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    //Serial.println(newspeed);
-    if (int(newspeed) != int(OSS_Avg_Speed)) {
-      
+    if (int(newspeed) != int(OSS_Avg_Speed)) {  
       OSS_Speed_Change = true;
+      Serial.print("Speed changed:");
+      Serial.println(newspeed);
     } else {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
+    
   }
   else if (reading < .9 and OSSHigh == 1) {
-    buttonpresses = buttonpresses+1;
     OSSHigh = 0;
-    Serial.println("high");
     digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
-
 }
 
 void RegulateEPC() {
