@@ -1,7 +1,7 @@
 
 //https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "10.21.26.1";
+const String Version = "10.21.28.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -88,12 +88,12 @@ Curve olddefaultcurves[6] = {
 };
 
 Curve defaultcurves[6] = {
-{ FirstUP, 10, 40},
-{ SecondDown, 5, 30},
-{ SecondUp, 30, 70},
-{ ThirdDown, 20, 50},
-{ ThirdUp, 50, 100},
-{ FourthDown, 35, 80}
+  { FirstUP, 10, 40 },
+  { SecondDown, 5, 30 },
+  { SecondUp, 30, 70 },
+  { ThirdDown, 20, 50 },
+  { ThirdUp, 50, 100 },
+  { FourthDown, 35, 80 }
 };
 
 
@@ -183,9 +183,9 @@ void setup() {
   pinMode(EPCPressure_Pin, INPUT);
 
   //Can Bus stuff
-   mcp2515.reset();
-   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
-   mcp2515.setNormalMode();
+  mcp2515.reset();
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
+  mcp2515.setNormalMode();
 
   Serial.begin(9600);
   Serial.println(Version);
@@ -206,7 +206,7 @@ void setup() {
 void loop() {
 
   cmd = Serial.read();
-  
+
   //Serial.print(bp.tpsvalue); //n/a
   //Serial.println("%");
 
@@ -430,27 +430,47 @@ void loop() {
       Shift();
   }
 
-BroadcastPacket lol = GetCanPacket();
+  BroadcastPacket lol = GetCanPacket();
   if (lol.dataid == 1523) {
-    
+
     Load_Avg = lol.tpsvalue;
   }
-
 }
 
 BroadcastPacket GetCanPacket() {
   BroadcastPacket bptemp = {};
-Serial.println(canMsg.can_id);
-   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-       Serial.println("here");
-  //   if (canMsg.can_id == 1523) {
-  //     bptemp.dataid = canMsg.can_id;
-  //     bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
-  //     bptemp.tpsvalue = bptemp.tpsvalue / 10;
-  Serial.println(canMsg.can_id);
-  //   }
-   }
-    return bptemp;
+  if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
+    if (canMsg.can_id == 1523) {
+      bptemp.dataid = canMsg.can_id;
+      bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
+      bptemp.tpsvalue = bptemp.tpsvalue / 10;
+    }
+    Serial.println(canMsg.can_id);
+    if (canMsg.can_id == 1601) {
+
+      if (canMsg.data[3]) {  //accel pin
+        manualmode = 1;
+        CommandedGear = CommandedGear + 1;
+        if (CommandedGear = 5) {
+          CommandedGear = 4;
+        }
+        Shift();
+        Serial.println("ACCEL detected!!");
+      } else if (canMsg.data[2]) {  //coast
+        manualmode = 1;
+        CommandedGear = CommandedGear - 1;
+        if (CommandedGear = 0) {
+          CommandedGear = 1;
+        }
+        Shift();
+        Serial.println("COAST detected!!");
+      }
+
+      Serial.println(canMsg.data[0]);
+      Serial.println(canMsg.data[1]);
+    }
+  }
+  return bptemp;
 }
 
 void MeasureSpeed() {
@@ -462,11 +482,11 @@ void MeasureSpeed() {
 
   if (reading > .9 and OSSHigh == 0) {
     OSSHigh = 1;
-    
+
     timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
     hz = (1.00 / timebetween) * 1000000;
     double s = 6.283185307 * (TireSize / 4.00) * (((hz / OSS_Holes) * GearRatio) / 60) * .1;
-    
+
     if (s < 140 and s > 0)
       OSS_Speeds[OSS_Speed_Count] = s;
     else
@@ -479,7 +499,7 @@ void MeasureSpeed() {
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if (int(newspeed) != int(OSS_Avg_Speed)) {  
+    if (int(newspeed) != int(OSS_Avg_Speed)) {
       OSS_Speed_Change = true;
       Serial.print("Speed changed:");
       Serial.println(newspeed);
@@ -487,12 +507,11 @@ void MeasureSpeed() {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
-    
-  }
-  else if (reading < .9 and OSSHigh == 1) {
+
+  } else if (reading < .9 and OSSHigh == 1) {
     OSSHigh = 0;
-      //     Serial.print("OSS HIGH:");
-      // Serial.println(1);
+    //     Serial.print("OSS HIGH:");
+    // Serial.println(1);
     digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
@@ -520,17 +539,17 @@ void RegulateEPC() {
 
     analogWrite(EPC_Pin, EPC_Start_PWM);
 
-    if (loggingenabled){
-    Serial.print("epc startup pwm: ");
-    Serial.println(EPC_Start_PWM);
+    if (loggingenabled) {
+      Serial.print("epc startup pwm: ");
+      Serial.println(EPC_Start_PWM);
     }
-      
+
 
   } else {
     EPC_Start_Millis = 0;
     // 0.4x + 56
     EPCPWM = ((0.4 * Load_Avg) + 40) * 2.55;
-    EPCPWM = 255 - EPCPWM; //epc pressure is inverted
+    EPCPWM = 255 - EPCPWM;  //epc pressure is inverted
 
     if (EPCPWM > 255) {
       EPCPWM = 255;
@@ -539,13 +558,13 @@ void RegulateEPC() {
         Serial.println(EPCPWM);
       }
     }
-  if(EPCPWM < 0){
-    EPCPWM = 0;
-    if (loggingenabled) {
+    if (EPCPWM < 0) {
+      EPCPWM = 0;
+      if (loggingenabled) {
         Serial.print("epc pwm too LOW setting to 0: ");
         Serial.println(EPCPWM);
       }
-  }
+    }
 
     //Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
@@ -640,10 +659,10 @@ void Shift() {
   Shift_Current_Millis = millis();
   if (Shift_Current_Millis - Shift_Previous_Millis > .1) {
     shifting = false;
-  }else{
-  shifting = true;
+  } else {
+    shifting = true;
   }
-  
+
   Shift_Previous_Millis = Shift_Current_Millis;
 
 #pragma region redundant value checks
