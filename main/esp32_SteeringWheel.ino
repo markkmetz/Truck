@@ -1,6 +1,4 @@
-#include <CAN.h>
-
-
+//https://github.com/pierremolinaro/acan-esp32/tree/main
 // CAN transceiver 	ESP32
 //             3V3 	3V3
 //             GND 	GND
@@ -8,9 +6,10 @@
 //             CRX 	GPIO_4
 //CTX and CRX pins can be changed by using CAN.setPins(rx, tx).
 
-//Don't forget about the potentiometer pin!
 
-
+#include <ACAN_ESP32.h>
+#include <core_version.h>
+const String version = "10.28.23.1";
 
 #define LED_PIN_R 32
 #define LED_PIN_G 33
@@ -22,17 +21,18 @@
 #define ACCELPIN 12  //set accell
 #define RESPIN 13    //Res
 
+
 struct buttonpresses {
   bool Off;
   bool On;
   bool Coast;
-  bool AccelPin;
+  bool Accel;
   bool Res;
 
 
 
   bool pressed() {
-    if (!this->Off || !this->On || !this->Coast || !this->AccelPin || !this->Res) {
+    if (!this->Off || !this->On || !this->Coast || !this->Accel || !this->Res) {
       return true;
     } else {
       return false;
@@ -43,7 +43,7 @@ struct buttonpresses {
     this->Off = digitalRead(OFFPIN);
     this->On = digitalRead(ONPIN);
     this->Coast = digitalRead(COASTPIN);
-    this->AccelPin = digitalRead(ACCELPIN);
+    this->Accel = digitalRead(ACCELPIN);
     this->Res = digitalRead(RESPIN);
   }
 };
@@ -68,17 +68,17 @@ void setup() {
   pinMode(RESPIN, INPUT_PULLUP);
 
   Serial.begin(9600);
-
-  while (!Serial)
-    ;
-
-  Serial.println("CAN Sender");
-
-  // start the CAN bus at 500 kbps
-  if (!CAN.begin(500E3)) {
-    Serial.println("Starting CAN failed!");
-    while (1)
-      ;
+  Serial.println(version);
+  ACAN_ESP32_Settings settings(500 * 1000);  // 500 kbit/s
+  settings.mRequestedCANMode = ACAN_ESP32_Settings::NormalMode;
+  settings.mRxPin = GPIO_NUM_5;
+  settings.mTxPin = GPIO_NUM_4;
+  const uint32_t errorCode = ACAN_ESP32::can.begin(settings);
+  if (0 == errorCode) {
+    Serial.println("Can ok");
+  } else {
+    Serial.print("Error Can: 0x");
+    Serial.println(errorCode, HEX);
   }
 }
 
@@ -87,16 +87,19 @@ void loop() {
   bp.update();
   writeled(200, 200, 200);
   if (bp.pressed()) {
-    CAN.beginPacket(0x12);
-    CAN.write(bp.Off);
-    CAN.write(bp.On);
-    CAN.write(bp.Coast);
-    CAN.write(bp.AccelPin);
-    CAN.write(bp.Res);
-    CAN.endPacket();
+    CANMessage frame;
+    frame.id = 1601;
+    frame.data[0] = !bp.Off;
+    frame.data[1] = !bp.On;
+    frame.data[2] = !bp.Coast;
+    frame.data[3] = !bp.Accel;
+    frame.data[4] = !bp.Res;
+    frame.len = 5;
 
-    Serial.println("sent");
-
+    const bool ok = ACAN_ESP32::can.tryToSend(frame);
+    if (ok) {
+      Serial.println("SEnt?");
+    }
 
   } else {
     writeled(0, 0, 200);
