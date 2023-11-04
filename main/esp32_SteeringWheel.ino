@@ -1,3 +1,10 @@
+#include <ACAN_ESP32.h>
+// #include <ACAN_ESP32_AcceptanceFilters.h>
+// #include <ACAN_ESP32_Buffer16.h>
+// //#include <ACAN_ESP32_CANRegisters.h>
+// #include <ACAN_ESP32_Settings.h>
+//#include <CANMessage.h>
+
 //https://github.com/pierremolinaro/acan-esp32/tree/main
 // CAN transceiver 	ESP32
 //             3V3 	3V3
@@ -7,9 +14,11 @@
 //CTX and CRX pins can be changed by using CAN.setPins(rx, tx).
 
 
-#include <ACAN_ESP32.h>
+//#include <ACAN_ESP32.h>
 #include <core_version.h>
 const String version = "10.28.23.1";
+const int debouncetime = 1000;
+long timenow;
 
 #define LED_PIN_R 32
 #define LED_PIN_G 33
@@ -28,12 +37,17 @@ struct buttonpresses {
   bool Coast;
   bool Accel;
   bool Res;
-
-
+  long lastsent = 0;
 
   bool pressed() {
+    timenow = millis();
     if (!this->Off || !this->On || !this->Coast || !this->Accel || !this->Res) {
-      return true;
+      if (timenow - this->lastsent > debouncetime) {
+        this->lastsent = timenow;
+        return true;
+      } else {
+        return false;
+      }
     } else {
       return false;
     }
@@ -80,6 +94,7 @@ void setup() {
     Serial.print("Error Can: 0x");
     Serial.println(errorCode, HEX);
   }
+  timenow = millis();
 }
 
 void loop() {
@@ -87,6 +102,8 @@ void loop() {
   bp.update();
   writeled(200, 200, 200);
   if (bp.pressed()) {
+
+
     CANMessage frame;
     frame.id = 1601;
     frame.data[0] = !bp.Off;
