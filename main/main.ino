@@ -1,4 +1,7 @@
-const String Version = "10.20.23.1";
+
+//https://wokwi.com/projects/new/arduino-uno
+
+const String Version = "11.3.23.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -17,10 +20,10 @@ const String Version = "10.20.23.1";
 // reverse?
 
 //mcp2515 pinout
-//cs =  48 digital pin
-//si = 51
-//so = 50
-//sck = 52
+//cs =  48 digital pin grey
+//si = 51 bottom blue
+//so = 50 purple
+//sck = 52 green
 //int = n/a
 
 
@@ -33,22 +36,22 @@ const String Version = "10.20.23.1";
 
 struct can_frame canMsg;
 MCP2515 mcp2515(48);
-
 const int tpsindex = 2;  //this is the id of the realtime data broadcasting packet
 const int dataindex = 0;
 struct BroadcastPacket {
+  long recvdtime = 0;
   int tpsvalue;
   //int dataid = 1523;  //this is the id of the realtime data broadcasting packet
   int dataid = -13;
   int other1;
   int other2;
-  int other3;  
+  int other3;
 };
 
 
 BroadcastPacket bp = {};
 
-enum CurveName{
+enum CurveName {
   FirstUP = 0,
   SecondDown = 1,
   SecondUp = 2,
@@ -64,17 +67,18 @@ struct Curve {
   float slope;
 };
 
-  // Shift Curves--------------------------
-  // 1st gear UP = 0.389x +5.11
-  //
-  // 2nd gear DOWN = 0.333x +3.67
-  // 2nd gear UP = 0.778x +10.2
-  //
-  // 3rd gear DOWN = 0.722x +8.78
-  // 3rd gear UP = 1.17x +14.3
-  //
-  // 4th gear DOWN = 1.06x +13.4
-Curve defaultcurves[6] = {
+// Shift Curves--------------------------
+// 1st gear UP = 0.389x +5.11
+//
+// 2nd gear DOWN = 0.333x +3.67
+// 2nd gear UP = 0.778x +10.2
+//
+// 3rd gear DOWN = 0.722x +8.78
+// 3rd gear UP = 1.17x +14.3
+//
+// 4th gear DOWN = 1.06x +13.4
+
+Curve olddefaultcurves[6] = {
   { FirstUP, 5.11, 44.01 },
   { SecondDown, 3.67, 36.67 },
   { SecondUp, 10.2, 88 },
@@ -82,6 +86,17 @@ Curve defaultcurves[6] = {
   { ThirdUp, 14.3, 131.3 },
   { FourthDown, 13.4, 119.4 }
 };
+
+Curve defaultcurves[6] = {
+  { FirstUP, 10, 40 },
+  { SecondDown, 5, 30 },
+  { SecondUp, 30, 70 },
+  { ThirdDown, 20, 50 },
+  { ThirdUp, 50, 100 },
+  { FourthDown, 35, 80 }
+};
+
+
 
 
 // INPUTS
@@ -106,7 +121,7 @@ const int TCC_Min = 0.3 * 255;
 const double TCC_Seconds_Before = .1;
 
 const int ISS_Smoothing = 5;
-const int OSS_Smoothing = 5;
+const int OSS_Smoothing = 20;
 
 const int EPC_Start_Time = 50;
 int EPC_Start_PWM = 220;
@@ -137,9 +152,10 @@ unsigned long TCC_Previous_Millis;
 unsigned long TCC_Current_Millis;
 
 // testing variables
-bool enableEPC = false;
+bool enableEPC = true;
+bool enabletcc = false;
 bool enabletestshifting = false;
-bool manualmode = 0;
+bool manualmode = 1;
 bool loggingenabled = 1;
 int cmd = -1;
 
@@ -168,14 +184,17 @@ void setup() {
 
   //Can Bus stuff
   mcp2515.reset();
-  mcp2515.setBitrate(CAN_500KBPS,MCP_8MHZ);
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
   Serial.begin(9600);
   Serial.println(Version);
 
+  digitalWrite(SolA_Pin, HIGH);
+  digitalWrite(SolB_Pin, LOW);
+
   OSS_Previous_Mircros = micros();
-  
+
   if (!verifycurves()) {
     Serial.println("Error with shift curves. Halting execution.");
     while (1 == 2) {
@@ -185,13 +204,9 @@ void setup() {
 }
 
 void loop() {
+
   cmd = Serial.read();
-  BroadcastPacket lol = GetCanPacket();
-  if(lol.dataid == 1523){
-Load_Avg = lol.tpsvalue;
-  Serial.println(Load_Avg);
-  
-  }
+
   //Serial.print(bp.tpsvalue); //n/a
   //Serial.println("%");
 
@@ -263,7 +278,16 @@ Load_Avg = lol.tpsvalue;
         }
       case 116:  // t --toggle torque converter TODO
         {
-          Serial.println("not implemented");
+          enabletcc = !enabletcc;
+          Serial.println("tcc is now ");
+          Serial.println(enabletcc);
+          if (enabletcc) {
+            digitalWrite(TCC_Pin, HIGH);
+          } else {
+            digitalWrite(TCC_Pin, LOW);
+          }
+
+
           break;
         }
       case 108:  // l --increment fake load data
@@ -393,86 +417,80 @@ Load_Avg = lol.tpsvalue;
       CheckShift();
     }
   } else {
-    //MeasureLoad();
-    // Serial.println("Manually setting load to 10%!!!!");
-    // Load_Avg = 10;
-
     MeasureSpeed();
 
     RegulateEPC();
 
-    if (OSS_Speed_Change)
+    if (OSS_Speed_Change) {
       CheckShift();
-    // else
-    //   DumpInfo();
-
-    // DetermineTCCLockup(); TODO
+      OSS_Speed_Change = false;
+    }
 
     if (CommandedGear != CurrentGear)
       Shift();
   }
+
+  BroadcastPacket lol = GetCanPacket();
+  if (lol.dataid == 1523) {
+
+    Load_Avg = lol.tpsvalue;
+  }
 }
 
-BroadcastPacket GetCanPacket(){
-BroadcastPacket bptemp = {};
-
+BroadcastPacket GetCanPacket() {
+  BroadcastPacket bptemp = {};
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-
-    if(canMsg.can_id == 1523){
-    bptemp.dataid = canMsg.can_id;
-    bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
-
-    bptemp.tpsvalue = bptemp.tpsvalue/10;
-    //Serial.print(bptemp.dataid);
-    //Serial.println(bptemp.tpsvalue);
+    if (canMsg.can_id == 1523) {
+      bptemp.dataid = canMsg.can_id;
+      bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
+      bptemp.tpsvalue = bptemp.tpsvalue / 10;
     }
-    //TODO filter canid for packettype
-    //Serial.print("CanID "); 
-    //Serial.print(canMsg.can_id); // print ID
+    Serial.println(canMsg.can_id);
+    if (canMsg.can_id == 1601) {
 
-    //Serial.print(", CanDLC ");
-    //Serial.print(canMsg.can_dlc); // print DLC
-    
-    //Serial.print(", CanData: ");
-    
-    
-    for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
-      //Serial.print(canMsg.data[i],HEX);
-      //Serial.print(" ");
+      if (canMsg.data[3]) {  //accel pin
+        manualmode = 1;
+        CommandedGear = CurrentGear + 1;
+        if (CommandedGear = 5) {
+          CommandedGear = 4;
+        }
+        Shift();
+        Serial.println("ACCEL detected!!");
+      } else if (canMsg.data[2]) {  //coast
+        manualmode = 1;
+        CommandedGear = CurrentGear - 1;
+        if (CommandedGear = 0) {
+          CommandedGear = 1;
+        }
+        Shift();
+        Serial.println("COAST detected!!");
+      }
+
+      Serial.println(canMsg.data[0]);
+      Serial.println(canMsg.data[1]);
     }
-    //Serial.println("");
   }
-  if(bptemp.dataid == 1523){
-    return bptemp;
-  }
-
+  return bptemp;
 }
 
 void MeasureSpeed() {
   OSS_Current_Mircros = micros();
-  OSS[OSS_Measure_Count] = digitalRead(OSS_Pin);
-  OSS_Measure_Count++;
-  // bool HasChanged = false; not needed?
+  int reading = digitalRead(OSS_Pin);
+
   unsigned long timebetween;
   double hz;
-  // reset array
 
-  if (OSS_Measure_Count == OSS_Smoothing)
-    OSS_Measure_Count = 0;
-
-  double ossavg = getAverage(OSS, OSS_Smoothing);
-
-  if (ossavg > (2.0 / OSS_Smoothing) and OSSHigh == 0) {
+  if (reading > .9 and OSSHigh == 0) {
     OSSHigh = 1;
-    digitalWrite(13, HIGH);
+
     timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
     hz = (1.00 / timebetween) * 1000000;
-    double s = 6.283185307 * (TireSize / 2.00) * (((hz / OSS_Holes) * GearRatio) / 60);
+    double s = 6.283185307 * (TireSize / 4.00) * (((hz / OSS_Holes) * GearRatio) / 60) * .1;
 
     if (s < 140 and s > 0)
       OSS_Speeds[OSS_Speed_Count] = s;
     else
-      OSS_Speeds[OSS_Speed_Count] = ossavg;
+      OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
 
     if (OSS_Speed_Count < OSS_Smoothing - 1)
       OSS_Speed_Count++;
@@ -483,14 +501,17 @@ void MeasureSpeed() {
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
     if (int(newspeed) != int(OSS_Avg_Speed)) {
       OSS_Speed_Change = true;
+      Serial.print("Speed changed:");
+      Serial.println(newspeed);
     } else {
       OSS_Speed_Change = false;
     }
     OSS_Avg_Speed = newspeed;
-  }
 
-  if (ossavg < (2.0 / OSS_Smoothing) and OSSHigh == 1) {
+  } else if (reading < .9 and OSSHigh == 1) {
     OSSHigh = 0;
+    //     Serial.print("OSS HIGH:");
+    // Serial.println(1);
     digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
@@ -505,27 +526,30 @@ void RegulateEPC() {
   }
 
   unsigned long epctemptime = millis();
-  
-  if (EPCPWM == 0 && EPC_Start_Millis == 0){
+
+  if (EPCPWM == 0 && EPC_Start_Millis == 0) {
     EPC_Start_Millis = epctemptime;
 
     if (loggingenabled)
       Serial.println("epc starting up.. ");
-  } 
-  
-  if( epctemptime - EPC_Start_Millis < EPC_Start_Time) {
+  }
+
+  if (epctemptime - EPC_Start_Millis < EPC_Start_Time) {
     //Start up
-    
+
     analogWrite(EPC_Pin, EPC_Start_PWM);
 
-    if (loggingenabled)
+    if (loggingenabled) {
       Serial.print("epc startup pwm: ");
       Serial.println(EPC_Start_PWM);
-      
+    }
+
+
   } else {
     EPC_Start_Millis = 0;
     // 0.4x + 56
-    EPCPWM = ((0.4 * Load_Avg) + 60) * 2.55;
+    EPCPWM = ((0.4 * Load_Avg) + 40) * 2.55;
+    EPCPWM = 255 - EPCPWM;  //epc pressure is inverted
 
     if (EPCPWM > 255) {
       EPCPWM = 255;
@@ -534,8 +558,22 @@ void RegulateEPC() {
         Serial.println(EPCPWM);
       }
     }
-    Serial.println(EPCPWM);
+    if (EPCPWM < 0) {
+      EPCPWM = 0;
+      if (loggingenabled) {
+        Serial.print("epc pwm too LOW setting to 0: ");
+        Serial.println(EPCPWM);
+      }
+    }
+
+    //Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
+    Serial.print("epc:");
+    Serial.print(EPCPWM);
+    Serial.print(",load:");
+    Serial.print(Load_Avg);
+    Serial.print(",CurrentGear:");
+    Serial.println(CurrentGear);
   }
 }
 
@@ -592,20 +630,20 @@ void DumpInfo() {
 void CheckShift() {
   CommandedGear = CalculateGear();
   if (loggingenabled) {
-    Serial.print("CheckShift(): current/commanded: ");
-    Serial.print(CurrentGear);
-    Serial.print(",");
-    Serial.println(CommandedGear);
-    Serial.print("CheckShift(): speed/load: ");
-    Serial.print(OSS_Avg_Speed);
-    Serial.print(",");
-    Serial.println(Load_Avg);
+    // Serial.print("CheckShift(): current/commanded: ");
+    // Serial.print(CurrentGear);
+    // Serial.print(",");
+    // Serial.println(CommandedGear);
+    // Serial.print("CheckShift(): speed/load: ");
+    // Serial.print(OSS_Avg_Speed);
+    // Serial.print(",");
+    // Serial.println(Load_Avg);
   }
   if (CurrentGear != CommandedGear) {
-    Serial.print("gear: ");
-    Serial.print(CommandedGear);
-    Serial.print(",speed: ");
-    Serial.println(OSS_Avg_Speed);
+    // Serial.print("gear: ");
+    // Serial.print(CommandedGear);
+    // Serial.print(",speed: ");
+    // Serial.println(OSS_Avg_Speed);
   }
 }
 
@@ -616,29 +654,33 @@ void Shift() {
   //  3 0/1
   //  4 1/1
 
-  if (loggingenabled) {
-    Serial.print("Shifting from ");
-    Serial.print(CurrentGear);
-    Serial.print(" to ");
-    Serial.println(CommandedGear);
-  }
+  // if (loggingenabled) {
+  //   Serial.print("Shifting from ");
+  //   Serial.print(CurrentGear);
+  //   Serial.print(" to ");
+  //   Serial.println(CommandedGear);
+  // }
 
   // give tcc time to lock before shifting again?
   Shift_Current_Millis = millis();
   if (Shift_Current_Millis - Shift_Previous_Millis > .1) {
     shifting = false;
+  } else {
+    shifting = true;
   }
 
-  shifting = true;
   Shift_Previous_Millis = Shift_Current_Millis;
 
 #pragma region redundant value checks
   if (CurrentGear - CommandedGear > 1) {
     CommandedGear = CurrentGear - 1;
     if (loggingenabled) {
+      Serial.println("current");
+      Serial.println(CurrentGear);
       Serial.println("Error: skipping a DOWN shift gear.");
       Serial.print("New desired gear is: ");
       Serial.println(CommandedGear);
+      
     }
   }
 
@@ -654,7 +696,6 @@ void Shift() {
   if (CommandedGear == CurrentGear) {
     if (loggingenabled)
       Serial.println("Error: shifting to same gear.");
-    return;
   }
 
   if (CommandedGear > 4 || CommandedGear < 1) {
@@ -664,25 +705,29 @@ void Shift() {
       Serial.println("Canceling shift..");
     }
     CommandedGear = CurrentGear;
-    return;
+    //
   }
 #pragma endregion
 
   if (CommandedGear == 1) {
     digitalWrite(SolA_Pin, HIGH);
     digitalWrite(SolB_Pin, LOW);
+    //Serial.println("here1");
     CurrentGear = 1;
   } else if (CommandedGear == 2) {
     digitalWrite(SolA_Pin, LOW);
     digitalWrite(SolB_Pin, LOW);
+    //Serial.println("here2");
     CurrentGear = 2;
   } else if (CommandedGear == 3) {
     digitalWrite(SolA_Pin, LOW);
     digitalWrite(SolB_Pin, HIGH);
+    //Serial.println("here3");
     CurrentGear = 3;
   } else if (CommandedGear == 4) {
     digitalWrite(SolA_Pin, HIGH);
     digitalWrite(SolB_Pin, HIGH);
+    //Serial.println("here4");
     CurrentGear = 4;
   }
 }
@@ -718,29 +763,29 @@ int CalculateGear() {
 
   if (CurrentGear == 1) {
 
-    if (OSS_Avg_Speed > (CalcCurveValue(FirstUP,Load_Avg))) {
+    if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg))) {
       return 2;
     } else {
       return 1;
     }
   } else if (CurrentGear == 2) {
-    if (OSS_Avg_Speed > (CalcCurveValue(SecondUp,Load_Avg))) {
+    if (OSS_Avg_Speed > (CalcCurveValue(SecondUp, Load_Avg))) {
       return 3;
-    } else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown,Load_Avg))) {
+    } else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg))) {
       return 1;
     } else {
       return 2;
     }
   } else if (CurrentGear == 3) {
-    if (OSS_Avg_Speed > (CalcCurveValue(ThirdUp,Load_Avg))) {
+    if (OSS_Avg_Speed > (CalcCurveValue(ThirdUp, Load_Avg))) {
       return 4;
-    } else if (OSS_Avg_Speed < (CalcCurveValue(ThirdDown,Load_Avg))) {
+    } else if (OSS_Avg_Speed < (CalcCurveValue(ThirdDown, Load_Avg))) {
       return 2;
     } else {
       return 3;
     }
   } else if (CurrentGear == 4) {
-    if (OSS_Avg_Speed < (CalcCurveValue(FourthDown,Load_Avg))) {
+    if (OSS_Avg_Speed < (CalcCurveValue(FourthDown, Load_Avg))) {
       return 3;
     } else {
       return 4;
@@ -751,9 +796,9 @@ int CalculateGear() {
 }
 
 //Calulate the y value (speed) from the shift curves.
-double CalcCurveValue(CurveName cname,double load){
-  double m = (defaultcurves[cname].y100 - defaultcurves[cname].y0)/100;
-  return (((m*load) + defaultcurves[cname].y0));
+double CalcCurveValue(CurveName cname, double load) {
+  double m = (defaultcurves[cname].y100 - defaultcurves[cname].y0) / 100;
+  return (((m * load) + defaultcurves[cname].y0));
 }
 
 double getDoubleAverage(double arr[], int size) {
