@@ -1,7 +1,7 @@
 
 //https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "10.21.28.1";
+const String Version = "11.3.23.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -450,7 +450,7 @@ BroadcastPacket GetCanPacket() {
 
       if (canMsg.data[3]) {  //accel pin
         manualmode = 1;
-        CommandedGear = CommandedGear + 1;
+        CommandedGear = CurrentGear + 1;
         if (CommandedGear = 5) {
           CommandedGear = 4;
         }
@@ -458,7 +458,7 @@ BroadcastPacket GetCanPacket() {
         Serial.println("ACCEL detected!!");
       } else if (canMsg.data[2]) {  //coast
         manualmode = 1;
-        CommandedGear = CommandedGear - 1;
+        CommandedGear = CurrentGear - 1;
         if (CommandedGear = 0) {
           CommandedGear = 1;
         }
@@ -568,6 +568,12 @@ void RegulateEPC() {
 
     //Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
+    Serial.print("epc:");
+    Serial.print(EPCPWM);
+    Serial.print(",load:");
+    Serial.print(Load_Avg);
+    Serial.print(",CurrentGear:");
+    Serial.println(CurrentGear);
   }
 }
 
@@ -669,9 +675,12 @@ void Shift() {
   if (CurrentGear - CommandedGear > 1) {
     CommandedGear = CurrentGear - 1;
     if (loggingenabled) {
+      Serial.println("current");
+      Serial.println(CurrentGear);
       Serial.println("Error: skipping a DOWN shift gear.");
       Serial.print("New desired gear is: ");
       Serial.println(CommandedGear);
+      
     }
   }
 
