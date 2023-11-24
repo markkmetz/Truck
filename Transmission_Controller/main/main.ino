@@ -1,7 +1,6 @@
-
 //https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "11.3.23.1";
+const String Version = "11.14.23.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -35,6 +34,8 @@ const String Version = "11.3.23.1";
 #pragma region variables
 
 struct can_frame canMsg;
+struct can_frame canMsg1;
+
 MCP2515 mcp2515(48);
 const int tpsindex = 2;  //this is the id of the realtime data broadcasting packet
 const int dataindex = 0;
@@ -47,6 +48,8 @@ struct BroadcastPacket {
   int other2;
   int other3;
 };
+
+
 
 
 BroadcastPacket bp = {};
@@ -125,6 +128,7 @@ const int OSS_Smoothing = 20;
 
 const int EPC_Start_Time = 50;
 int EPC_Start_PWM = 220;
+int EPC_Y_INT = 40;
 
 // Variables
 bool Load_Change = false;  // not used except for testing? TODO
@@ -162,6 +166,7 @@ int cmd = -1;
 bool waitingtcc = false;
 bool shifting = false;
 int CurrentGear = 1;
+
 
 unsigned long EPC_Start_Millis;
 
@@ -445,29 +450,44 @@ BroadcastPacket GetCanPacket() {
       bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
       bptemp.tpsvalue = bptemp.tpsvalue / 10;
     }
-    Serial.println(canMsg.can_id);
+    //Serial.println(canMsg.can_id);
     if (canMsg.can_id == 1601) {
-
+      manualmode = 1;
       if (canMsg.data[3]) {  //accel pin
-        manualmode = 1;
+        Serial.println("ACCEL detected!!");
         CommandedGear = CurrentGear + 1;
         if (CommandedGear = 5) {
           CommandedGear = 4;
         }
         Shift();
-        Serial.println("ACCEL detected!!");
       } else if (canMsg.data[2]) {  //coast
-        manualmode = 1;
+        Serial.println("COAST detected!!");
         CommandedGear = CurrentGear - 1;
         if (CommandedGear = 0) {
           CommandedGear = 1;
         }
         Shift();
-        Serial.println("COAST detected!!");
+      } else if (canMsg.data[0]) {  //off
+        Serial.println("OFF detected!!");
+        EPC_Y_INT = EPC_Y_INT - 10;
+
+      } else if (canMsg.data[1]) {  //on
+        Serial.println("ON detected!!");
+        EPC_Y_INT = EPC_Y_INT + 10;
+
+      } else if (canMsg.data[4]) {  //TCC
+        Serial.println("RES detected!!");
+        enabletcc = !enabletcc;
+
+        digitalWrite(TCC_Pin, enabletcc);
       }
 
-      Serial.println(canMsg.data[0]);
-      Serial.println(canMsg.data[1]);
+      //send message
+      canMsg1.can_id = 1602;
+      canMsg1.can_dlc = 2;
+      canMsg1.data[0] = CommandedGear;
+      canMsg1.data[1] = enabletcc;
+      mcp2515.sendMessage(&canMsg1);
     }
   }
   return bptemp;
@@ -536,7 +556,6 @@ void RegulateEPC() {
 
   if (epctemptime - EPC_Start_Millis < EPC_Start_Time) {
     //Start up
-
     analogWrite(EPC_Pin, EPC_Start_PWM);
 
     if (loggingenabled) {
@@ -544,11 +563,10 @@ void RegulateEPC() {
       Serial.println(EPC_Start_PWM);
     }
 
-
   } else {
     EPC_Start_Millis = 0;
     // 0.4x + 56
-    EPCPWM = ((0.4 * Load_Avg) + 40) * 2.55;
+    EPCPWM = ((0.4 * Load_Avg) + EPC_Y_INT) * 2.55;
     EPCPWM = 255 - EPCPWM;  //epc pressure is inverted
 
     if (EPCPWM > 255) {
@@ -572,6 +590,8 @@ void RegulateEPC() {
     Serial.print(EPCPWM);
     Serial.print(",load:");
     Serial.print(Load_Avg);
+    Serial.print(",tcc:");
+    Serial.print(enabletcc);
     Serial.print(",CurrentGear:");
     Serial.println(CurrentGear);
   }
@@ -648,6 +668,7 @@ void CheckShift() {
 }
 
 void Shift() {
+
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
   //  2 0/0
@@ -661,6 +682,8 @@ void Shift() {
   //   Serial.println(CommandedGear);
   // }
 
+
+
   // give tcc time to lock before shifting again?
   Shift_Current_Millis = millis();
   if (Shift_Current_Millis - Shift_Previous_Millis > .1) {
@@ -671,7 +694,6 @@ void Shift() {
 
   Shift_Previous_Millis = Shift_Current_Millis;
 
-#pragma region redundant value checks
   if (CurrentGear - CommandedGear > 1) {
     CommandedGear = CurrentGear - 1;
     if (loggingenabled) {
@@ -680,7 +702,6 @@ void Shift() {
       Serial.println("Error: skipping a DOWN shift gear.");
       Serial.print("New desired gear is: ");
       Serial.println(CommandedGear);
-      
     }
   }
 
@@ -693,11 +714,6 @@ void Shift() {
     }
   }
 
-  if (CommandedGear == CurrentGear) {
-    if (loggingenabled)
-      Serial.println("Error: shifting to same gear.");
-  }
-
   if (CommandedGear > 4 || CommandedGear < 1) {
     if (loggingenabled) {
       Serial.print("Error: shifting to imaginary gear: ");
@@ -705,9 +721,18 @@ void Shift() {
       Serial.println("Canceling shift..");
     }
     CommandedGear = CurrentGear;
-    //
   }
-#pragma endregion
+  if (CommandedGear == CurrentGear) {
+    if (loggingenabled)
+      Serial.println("Error: shifting to same gear.");
+      
+      return;
+      //return so we don't disable a locked tcc for no reason.
+  }
+  //disable tcc for smoother shift
+  enabletcc = false;
+  digitalWrite(TCC_Pin, 0);
+
 
   if (CommandedGear == 1) {
     digitalWrite(SolA_Pin, HIGH);
