@@ -1,6 +1,6 @@
 //https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "11.14.23.1";
+const String Version = "11.24.23.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -105,8 +105,8 @@ Curve defaultcurves[6] = {
 // INPUTS
 const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
-const byte LinePressure_Pin = A1;
-const byte EPCPressure_Pin = A0;
+const byte LinePressure_Pin = A7;
+const byte EPCPressure_Pin = A6;
 
 // OUTPUTS
 int TCC_Pin = 3;  // make sure this is an analog pin
@@ -586,12 +586,22 @@ void RegulateEPC() {
 
     //Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
+
     Serial.print("epc:");
     Serial.print(EPCPWM);
+
     Serial.print(",load:");
     Serial.print(Load_Avg);
+
+    Serial.print(",Line:");
+    Serial.print(analogRead(A7)*.29);
+
+    Serial.print(",EPC_Press:");
+    Serial.print(analogRead(A6)*.29);
+
     Serial.print(",tcc:");
     Serial.print(enabletcc);
+
     Serial.print(",CurrentGear:");
     Serial.println(CurrentGear);
   }
