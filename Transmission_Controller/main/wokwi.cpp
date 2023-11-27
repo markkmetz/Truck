@@ -1,10 +1,8 @@
+//https://wokwi.com/projects/new/arduino-mega
+
 // https://wokwi.com/projects/new/arduino-uno
 
 const String Version = "11.24.23.1";
-
-#include <SPI.h>
-#include <mcp2515.h>
-// https://github.com/autowp/arduino-mcp2515
 
 #pragma region notes
 // TODO
@@ -30,25 +28,6 @@ const String Version = "11.24.23.1";
 #pragma endregion notes
 
 #pragma region variables
-
-struct can_frame canMsg;
-struct can_frame canMsg1;
-
-MCP2515 mcp2515(48);
-const int tpsindex = 2; // this is the id of the realtime data broadcasting packet
-const int dataindex = 0;
-struct BroadcastPacket
-{
-  long recvdtime = 0;
-  int tpsvalue;
-  // int dataid = 1523;  //this is the id of the realtime data broadcasting packet
-  int dataid = -13;
-  int other1;
-  int other2;
-  int other3;
-};
-
-BroadcastPacket bp = {};
 
 enum CurveName
 {
@@ -82,20 +61,22 @@ struct Curve
 // 4th gear DOWN = 1.06x +13.4
 
 Curve olddefaultcurves[6] = {
-    {FirstUP, 5.11, 44.01},
-    {SecondDown, 3.67, 36.67},
-    {SecondUp, 10.2, 88},
-    {ThirdDown, 8.78, 80.98},
-    {ThirdUp, 14.3, 131.3},
-    {FourthDown, 13.4, 119.4}};
+  {FirstUP, 5.11, 44.01},
+  {SecondDown, 3.67, 36.67},
+  {SecondUp, 10.2, 88},
+  {ThirdDown, 8.78, 80.98},
+  {ThirdUp, 14.3, 131.3},
+  {FourthDown, 13.4, 119.4}
+};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 10, 40, 0, 100, 100},
-    {SecondDown, 5, 30, 0, 100, 100},
-    {SecondUp, 30, 70, 0, 100, 100},
-    {ThirdDown, 20, 50, 0, 100, 100},
-    {ThirdUp, 50, 100, 0, 100, 100},
-    {FourthDown, 35, 80, 0, 100, 100}};
+  {FirstUP, 10, 40, 0, 100, 100},
+  {SecondDown, 5, 30, 0, 100, 100},
+  {SecondUp, 30, 70, 0, 100, 100},
+  {ThirdDown, 20, 50, 0, 100, 100},
+  {ThirdUp, 50, 100, 0, 100, 100},
+  {FourthDown, 35, 80, 0, 100, 100}
+};
 
 class PID
 {
@@ -120,7 +101,7 @@ class PID
       // Proportional term
       double Pout = Kp * error;
 
-      // clamping the Integral term
+      // Integral term
       if (lastOutput < 255 && lastOutput > 0) {
         integral += error;
       }
@@ -134,10 +115,10 @@ class PID
       // Calculate total output
       int output = (int) Pout + Iout + Dout;
 
+
       // Save error to next loop
       pre_error = error;
 
-      //clamp the output
       output = constrain(output, 0, 255);
       lastOutput = output;
 
@@ -145,7 +126,6 @@ class PID
     }
 };
 PID pid(.02, 0.02, .01);
-int EPCSetpoint = 130;
 
 // INPUTS
 const byte ISS_Pin = 8;
@@ -216,7 +196,7 @@ int CurrentGear = 1;
 
 unsigned long EPC_Start_Millis;
 
-int EPCSetpoint = 0;
+int EPCPWM = 0;
 
 int CommandedGear = 1;
 // int DesiredGear = 0; not needed?
@@ -234,10 +214,6 @@ void setup()
   pinMode(LinePressure_Pin, INPUT);
   pinMode(EPCPressure_Pin, INPUT);
 
-  // Can Bus stuff
-  mcp2515.reset();
-  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
-  mcp2515.setNormalMode();
 
   Serial.begin(9600);
   Serial.println(Version);
@@ -259,9 +235,9 @@ void setup()
 
 void loop()
 {
-////////////
-  cmd = Serial.read();
 
+  cmd = Serial.read();
+  MeasurePressures();
   // Serial.print(bp.tpsvalue); //n/a
   // Serial.println("%");
 
@@ -272,194 +248,194 @@ void loop()
   {
     switch (cmd)
     {
-    case 49: // 1 --shift to 1st gear
-    {
-      CommandedGear = 1;
-      Shift();
-      break;
-    }
-    case 50: // 2 --shift to 2nd gear
-    {
-      CommandedGear = 2;
-      Shift();
-      break;
-    }
-    case 51: // 3 --shift to 3rd gear
-    {
-      CommandedGear = 3;
-      Shift();
-      break;
-    }
-    case 52: // 4 --shift to 4th gear
-    {
-      CommandedGear = 4;
-      Shift();
-      break;
-    }
-    case 48: // 0 --shift to imaginary 0th gear
-    {
-      CommandedGear = 0;
-      Shift();
-      break;
-    }
-    case 53: // 4 --shift to imaginary 5th gear
-    {
-      CommandedGear = 5;
-      Shift();
-      break;
-    }
-    case 54: // 6 --shift to imaginary 6th gear
-    {
-      CommandedGear = 6;
-      Shift();
-      break;
-    }
-    case 55: // 7 --shift to imaginary -1th gear
-    {
-      CommandedGear = -1;
-      Shift();
-      break;
-    }
-    case 101: // e --toggle epc
-    {
-      enableEPC = !enableEPC;
+      case 49: // 1 --shift to 1st gear
+        {
+          CommandedGear = 1;
+          Shift();
+          break;
+        }
+      case 50: // 2 --shift to 2nd gear
+        {
+          CommandedGear = 2;
+          Shift();
+          break;
+        }
+      case 51: // 3 --shift to 3rd gear
+        {
+          CommandedGear = 3;
+          Shift();
+          break;
+        }
+      case 52: // 4 --shift to 4th gear
+        {
+          CommandedGear = 4;
+          Shift();
+          break;
+        }
+      case 48: // 0 --shift to imaginary 0th gear
+        {
+          CommandedGear = 0;
+          Shift();
+          break;
+        }
+      case 53: // 4 --shift to imaginary 5th gear
+        {
+          CommandedGear = 5;
+          Shift();
+          break;
+        }
+      case 54: // 6 --shift to imaginary 6th gear
+        {
+          CommandedGear = 6;
+          Shift();
+          break;
+        }
+      case 55: // 7 --shift to imaginary -1th gear
+        {
+          CommandedGear = -1;
+          Shift();
+          break;
+        }
+      case 101: // e --toggle epc
+        {
+          enableEPC = !enableEPC;
 
-      // shutdown epc. should probably be a function
-      EPCSetpoint = 0;
-      analogWrite(EPC_Pin, EPCSetpoint);
+          // shutdown epc. should probably be a function
+          EPCPWM = 0;
+          analogWrite(EPC_Pin, EPCPWM);
 
-      Serial.print("EPC = ");
-      Serial.println(enableEPC);
-      break;
-    }
-    case 116: // t --toggle torque converter TODO
-    {
-      enabletcc = !enabletcc;
-      Serial.println("tcc is now ");
-      Serial.println(enabletcc);
-      if (enabletcc)
-      {
-        digitalWrite(TCC_Pin, HIGH);
-      }
-      else
-      {
-        digitalWrite(TCC_Pin, LOW);
-      }
+          Serial.print("EPC = ");
+          Serial.println(enableEPC);
+          break;
+        }
+      case 116: // t --toggle torque converter TODO
+        {
+          enabletcc = !enabletcc;
+          Serial.println("tcc is now ");
+          Serial.println(enabletcc);
+          if (enabletcc)
+          {
+            digitalWrite(TCC_Pin, HIGH);
+          }
+          else
+          {
+            digitalWrite(TCC_Pin, LOW);
+          }
 
-      break;
-    }
-    case 108: // l --increment fake load data
-    {
-      Load_Avg = Load_Avg + 10;
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
+          break;
+        }
+      case 108: // l --increment fake load data
+        {
+          Load_Avg = Load_Avg + 10;
+          Serial.print("Load is set to: ");
+          Serial.println(Load_Avg);
 
-      Load_Change = true;
-      break;
-    }
-    case 76: // L --decrement fake load data
-    {
-      Load_Avg = Load_Avg - 10;
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
+          Load_Change = true;
+          break;
+        }
+      case 76: // L --decrement fake load data
+        {
+          Load_Avg = Load_Avg - 10;
+          Serial.print("Load is set to: ");
+          Serial.println(Load_Avg);
 
-      Load_Change = true;
-      break;
-    }
-    case 99: // c --calc shift
-    {
-      CheckShift();
-      break;
-    }
-    case 111: // o --increment OSS data
-    {
-      OSS_Avg_Speed;
+          Load_Change = true;
+          break;
+        }
+      case 99: // c --calc shift
+        {
+          CheckShift();
+          break;
+        }
+      case 111: // o --increment OSS data
+        {
+          OSS_Avg_Speed;
 
-      int newspeed = OSS_Avg_Speed + 10;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
+          int newspeed = OSS_Avg_Speed + 10;
+          if (newspeed > 130)
+            newspeed = -20;
+          for (int i = 0; i < OSS_Smoothing; i++)
+          {
+            OSS[i] = newspeed;
+          }
+          OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+          Serial.print("Speed is set to: ");
+          Serial.println(OSS_Avg_Speed);
 
-      OSS_Speed_Change = true;
-      break;
-    }
-    case 79: // O --decrement OSS data
-    {
-      OSS_Avg_Speed;
+          OSS_Speed_Change = true;
+          break;
+        }
+      case 79: // O --decrement OSS data
+        {
+          OSS_Avg_Speed;
 
-      int newspeed = OSS_Avg_Speed - 5;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
+          int newspeed = OSS_Avg_Speed - 5;
+          if (newspeed > 130)
+            newspeed = -20;
+          for (int i = 0; i < OSS_Smoothing; i++)
+          {
+            OSS[i] = newspeed;
+          }
+          OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+          Serial.print("Speed is set to: ");
+          Serial.println(OSS_Avg_Speed);
 
-      OSS_Speed_Change = true;
-      break;
-    }
-    case 65: // A --toggle shifting based on checkshift()
-    {
-      enabletestshifting = !enabletestshifting;
-      Serial.print("debug shifting is currently: ");
-      Serial.println(enabletestshifting);
-      break;
-    }
-    case 118: // v --verify curves
-    {
-      if (verifycurves())
-      {
-        Serial.println("Shift curves good.");
-      }
-      else
-      {
-        Serial.println("Error with shift curves");
-      }
-      break;
-    }
-    case 43: // + --shift y int of curves up by 2
-    {
-      for (int i = 0; i < 6; i++)
-        defaultcurves[i].y0 = defaultcurves[i].y0 + 2;
+          OSS_Speed_Change = true;
+          break;
+        }
+      case 65: // A --toggle shifting based on checkshift()
+        {
+          enabletestshifting = !enabletestshifting;
+          Serial.print("debug shifting is currently: ");
+          Serial.println(enabletestshifting);
+          break;
+        }
+      case 118: // v --verify curves
+        {
+          if (verifycurves())
+          {
+            Serial.println("Shift curves good.");
+          }
+          else
+          {
+            Serial.println("Error with shift curves");
+          }
+          break;
+        }
+      case 43: // + --shift y int of curves up by 2
+        {
+          for (int i = 0; i < 6; i++)
+            defaultcurves[i].y0 = defaultcurves[i].y0 + 2;
 
-      Serial.println("curves shifted UP. verifying new curves");
-      if (verifycurves())
-        Serial.println("Shift curves good.");
-      else
-        Serial.println("Error with shift curves");
+          Serial.println("curves shifted UP. verifying new curves");
+          if (verifycurves())
+            Serial.println("Shift curves good.");
+          else
+            Serial.println("Error with shift curves");
 
-      break;
-    }
-    case 45: // -    -shift y int of curves down by 2
-    {
-      for (int i = 0; i < 6; i++)
-        defaultcurves[i].y0 = defaultcurves[i].y0 - 2;
+          break;
+        }
+      case 45: // -    -shift y int of curves down by 2
+        {
+          for (int i = 0; i < 6; i++)
+            defaultcurves[i].y0 = defaultcurves[i].y0 - 2;
 
-      Serial.println("curves shifted DOWN. verifying new curves");
-      if (verifycurves())
-        Serial.println("Shift curves good.");
-      else
-        Serial.println("Error with shift curves");
+          Serial.println("curves shifted DOWN. verifying new curves");
+          if (verifycurves())
+            Serial.println("Shift curves good.");
+          else
+            Serial.println("Error with shift curves");
 
-      break;
-    }
-    default: // command not found
-    {
-      if (cmd != -1)
-      {
-        Serial.println(cmd);
-      }
-      break;
-    }
+          break;
+        }
+      default: // command not found
+        {
+          if (cmd != -1)
+          {
+            Serial.println(cmd);
+          }
+          break;
+        }
     }
     if (cmd != -1)
     {
@@ -501,77 +477,8 @@ void loop()
       Shift();
   }
 
-  BroadcastPacket lol = GetCanPacket();
-  if (lol.dataid == 1523)
-  {
-
-    Load_Avg = lol.tpsvalue;
-  }
 }
 
-BroadcastPacket GetCanPacket()
-{
-  BroadcastPacket bptemp = {};
-  if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
-  {
-    if (canMsg.can_id == 1523)
-    {
-      bptemp.dataid = canMsg.can_id;
-      bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
-      bptemp.tpsvalue = bptemp.tpsvalue / 10;
-    }
-    // Serial.println(canMsg.can_id);
-    if (canMsg.can_id == 1601)
-    {
-      manualmode = 1;
-      if (canMsg.data[3])
-      { // accel pin
-        Serial.println("ACCEL detected!!");
-        CommandedGear = CurrentGear + 1;
-        if (CommandedGear = 5)
-        {
-          CommandedGear = 4;
-        }
-        Shift();
-      }
-      else if (canMsg.data[2])
-      { // coast
-        Serial.println("COAST detected!!");
-        CommandedGear = CurrentGear - 1;
-        if (CommandedGear = 0)
-        {
-          CommandedGear = 1;
-        }
-        Shift();
-      }
-      else if (canMsg.data[0])
-      { // off
-        Serial.println("OFF detected!!");
-        EPC_Y_INT = EPC_Y_INT - 10;
-      }
-      else if (canMsg.data[1])
-      { // on
-        Serial.println("ON detected!!");
-        EPC_Y_INT = EPC_Y_INT + 10;
-      }
-      else if (canMsg.data[4])
-      { // TCC
-        Serial.println("RES detected!!");
-        enabletcc = !enabletcc;
-
-        digitalWrite(TCC_Pin, enabletcc);
-      }
-
-      // send message
-      canMsg1.can_id = 1602;
-      canMsg1.can_dlc = 2;
-      canMsg1.data[0] = CommandedGear;
-      canMsg1.data[1] = enabletcc;
-      mcp2515.sendMessage(&canMsg1);
-    }
-  }
-  return bptemp;
-}
 
 void MeasureSpeed()
 {
@@ -637,7 +544,7 @@ void RegulateEPC()
 
   unsigned long epctemptime = millis();
 
-  if (EPCSetpoint == 0 && EPC_Start_Millis == 0)
+  if (EPCPWM == 0 && EPC_Start_Millis == 0)
   {
     EPC_Start_Millis = epctemptime;
 
@@ -658,9 +565,16 @@ void RegulateEPC()
   }
   else
   {
-    EPCSetpoint = Load_Avg + 130;
+    EPC_Start_Millis = 0;
+    // 0.4x + 56
+    EPCPWM = ((0.4 * Load_Avg) + EPC_Y_INT) * 2.55;
+    EPCPWM = 255 - EPCPWM; // epc pressure is inverted
 
-    int EPCPWM = 255 - pid.calculate(setpoint, EPCPressure);
+    //PID pid(1.0, 2.0, 1.0); // Kp = 2.0, Ki = 0.5 and Kd = 1.0
+    int setpoint = 130;
+
+    int output = pid.calculate(setpoint, EPCPressure);
+
 
     if (EPCPWM > 255)
     {
@@ -681,8 +595,11 @@ void RegulateEPC()
       }
     }
 
-    // Serial.println(EPCSetpoint);
+    // Serial.println(EPCPWM);
     analogWrite(EPC_Pin, EPCPWM);
+    Serial.print(EPCPressure);
+    Serial.print(",");
+    Serial.println(output);
   }
 }
 
@@ -708,7 +625,7 @@ void DetermineTCCLockup()
 void PrintInfo()
 {
   Serial.print("epc:");
-  Serial.print(EPCSetpoint);
+  Serial.print(EPCPWM);
 
   Serial.print(",load:");
   Serial.print(Load_Avg);
