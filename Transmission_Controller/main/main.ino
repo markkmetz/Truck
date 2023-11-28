@@ -184,7 +184,8 @@ private:
 
 public:
   // Constructor
-  PID(double P, double I, double D) : Kp(P), Ki(I), Kd(D), pre_error(0), integral(0) {}
+  PID(double P, double I, double D)
+      : Kp(P), Ki(I), Kd(D), pre_error(0), integral(0) {}
 
   int calculate(double setpoint, double pv)
   {
@@ -198,7 +199,7 @@ public:
 
     integral += error;
 
-    integral = constrain(integral,-1000,1000);
+    integral = constrain(integral, -1000, 1000);
 
     double Iout = Ki * integral;
 
@@ -211,18 +212,16 @@ public:
 
     // Save error to next loop
     pre_error = error;
-  
+
     // clamp the output
-    
+
     lastOutput = output;
     output = constrain(output, 0, 255);
-    
 
     return output;
   }
 };
 PID pid(2, 2, 1);
-
 
 int EPCSetpoint = 50;
 
@@ -240,7 +239,7 @@ const int EPC_PIN = 5; // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
-const double GearRatio = 3.55;
+const double GearRatio = 4.56;
 const double TireSize = 33;
 
 const int ISS_Smoothing = 5;
@@ -267,6 +266,7 @@ int OSSHigh = 0;
 // micros is for oss and
 unsigned long OSS_Previous_Mircros;
 unsigned long OSS_Current_Mircros;
+unsigned long lastwritetime;
 
 unsigned long Shift_Previous_Millis;
 unsigned long Shift_Current_Millis;
@@ -298,8 +298,8 @@ void setup()
   pinMode(SOL_B_Pin, OUTPUT);
   pinMode(EPC_PIN, OUTPUT);
 
-  pinMode(ISS_Pin, INPUT);
-  pinMode(OSS_Pin, INPUT);
+  pinMode(ISS_Pin, INPUT_PULLUP);
+  pinMode(OSS_Pin, INPUT_PULLUP);
   pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
@@ -334,6 +334,7 @@ void loop()
 
   cmd = Serial.read();
   MeasurePressures();
+  MeasureSpeed();
   RegulateEPC();
   CheckShift();
 
@@ -352,18 +353,18 @@ void loop()
     case 50: // 2 --shift to 2nd gear
     {
       CommandedGear = 2;
-      ShiftingTimer.start(500,defaultcurves[FirstUP]);
+      ShiftingTimer.start(500, defaultcurves[FirstUP]);
       break;
     }
     case 51: // 3 --shift to 3rd gear
     {
-      ShiftingTimer.start(500,defaultcurves[SecondUp]);
+      ShiftingTimer.start(500, defaultcurves[SecondUp]);
       CommandedGear = 3;
       break;
     }
     case 52: // 4 --shift to 4th gear
     {
-      ShiftingTimer.start(500,defaultcurves[ThirdUp]);
+      ShiftingTimer.start(500, defaultcurves[ThirdUp]);
       CommandedGear = 4;
       break;
     }
@@ -625,46 +626,30 @@ void MeasureSpeed()
   unsigned long timebetween;
   double hz;
 
-  if (reading > .9 and OSSHigh == 0)
+  unsigned long duration = pulseIn(OSS_Pin, HIGH);
+  float frequency = 1000000.0 / (2.0 * duration);
+
+  // hz = (0.5 / timebetween) * 1000000;
+
+  double s = 6.283185307 * (TireSize / 4.00) * (((frequency / OSS_Holes) * GearRatio) / 60) * .1;
+
+  if (s < 140 and s > 0)
+    OSS_Speeds[OSS_Speed_Count] = s;
+  else
+    OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
+
+  if (OSS_Speed_Count < OSS_Smoothing - 1)
+    OSS_Speed_Count++;
+  else
   {
-    OSSHigh = 1;
-
-    timebetween = OSS_Current_Mircros - OSS_Previous_Mircros;
-    hz = (1.00 / timebetween) * 1000000;
-    double s = 6.283185307 * (TireSize / 4.00) * (((hz / OSS_Holes) * GearRatio) / 60) * .1;
-
-    if (s < 140 and s > 0)
-      OSS_Speeds[OSS_Speed_Count] = s;
-    else
-      OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
-
-    if (OSS_Speed_Count < OSS_Smoothing - 1)
-      OSS_Speed_Count++;
-    else
-    {
-      OSS_Speed_Count = 0;
-    }
-
-    double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if (int(newspeed) != int(OSS_Avg_Speed))
-    {
-      OSS_Speed_Change = true;
-      Serial.print("Speed changed:");
-      Serial.println(newspeed);
-    }
-    else
-    {
-      OSS_Speed_Change = false;
-    }
-    OSS_Avg_Speed = newspeed;
+    OSS_Speed_Count = 0;
   }
-  else if (reading < .9 and OSSHigh == 1)
+
+  double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
+  if (int(newspeed) != int(OSS_Avg_Speed))
   {
-    OSSHigh = 0;
-    //     Serial.print("OSS HIGH:");
-    // Serial.println(1);
-    // digitalWrite(13, LOW);
-    OSS_Previous_Mircros = OSS_Current_Mircros;
+    OSS_Speed_Change = true;
+    OSS_Avg_Speed = newspeed;
   }
 }
 
@@ -684,7 +669,6 @@ void RegulateEPC()
     if (ShiftingTimer.isRunning)
     {
       EPCSetpoint = ShiftingTimer.ShiftCurve.PressureWhileShiftingSetpoint;
-      
     }
     else
     {
@@ -692,12 +676,10 @@ void RegulateEPC()
       {
         EPCSetpoint = ShiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
       }
-
-      
     }
-    
+
     EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
-    
+
     if (EPCPWM > 255)
     {
       EPCPWM = 255;
@@ -744,28 +726,32 @@ void DetermineTCCLockup()
 
 void PrintInfo()
 {
-  Serial.print("epcpwm:");
-  Serial.print(EPCPWM);
-  Serial.print(",epcpressuresetpoint:");
-  Serial.print(EPCSetpoint);
+  if (millis() - lastwritetime > 500)
+  {
+    Serial.print("epcpwm:");
+    Serial.print(EPCPWM);
+    Serial.print(",epcpressuresetpoint:");
+    Serial.print(EPCSetpoint);
 
-  Serial.print(",load:");
-  Serial.print(Load_Avg);
+    Serial.print(",load:");
+    Serial.print(Load_Avg);
 
-  Serial.print(",Line:");
-  Serial.print(LinePressure);
+    Serial.print(",Line:");
+    Serial.print(LinePressure);
 
-  Serial.print(",EPC_Press:");
-  Serial.print(EPCPressure);
+    Serial.print(",EPC_Press:");
+    Serial.print(EPCPressure);
 
-  Serial.print(",tcc:");
-  Serial.print(enabletcc);
+    Serial.print(",tcc:");
+    Serial.print(enabletcc);
 
-  Serial.print(",CurrentGear:");
-  Serial.print(CurrentGear);
+    Serial.print(",CurrentGear:");
+    Serial.print(CurrentGear);
 
-  Serial.print(",CurrentSpeed:");
-  Serial.println(OSS_Avg_Speed);
+    Serial.print(",CurrentSpeed:");
+    Serial.println(OSS_Avg_Speed);
+    lastwritetime = millis();
+  }
 }
 
 void DumpInfo()
@@ -974,7 +960,7 @@ int CalculateGear()
 
     if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[FirstUP]);
+      ShiftingTimer.start(500, defaultcurves[FirstUP]);
       return 2;
     }
     else
@@ -986,12 +972,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcCurveValue(SecondUp, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[SecondUp]);
+      ShiftingTimer.start(500, defaultcurves[SecondUp]);
       return 3;
     }
     else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[SecondDown]);
+      ShiftingTimer.start(500, defaultcurves[SecondDown]);
       return 1;
     }
     else
@@ -1003,12 +989,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcCurveValue(ThirdUp, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[ThirdUp]);
+      ShiftingTimer.start(500, defaultcurves[ThirdUp]);
       return 4;
     }
     else if (OSS_Avg_Speed < (CalcCurveValue(ThirdDown, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[ThirdDown]);
+      ShiftingTimer.start(500, defaultcurves[ThirdDown]);
       return 2;
     }
     else
@@ -1020,7 +1006,7 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed < (CalcCurveValue(FourthDown, Load_Avg)))
     {
-      ShiftingTimer.start(500,defaultcurves[FourthDown]);
+      ShiftingTimer.start(500, defaultcurves[FourthDown]);
       return 3;
     }
     else
