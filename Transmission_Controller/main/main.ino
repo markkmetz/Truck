@@ -220,7 +220,9 @@ public:
   }
 };
 PID pid(.02, 0.02, .01);
-int EPCSetpoint = 130;
+PID pid2(.2,.5,.1);
+
+int EPCSetpoint = 50;
 
 // INPUTS
 const byte ISS_Pin = 8;
@@ -348,16 +350,18 @@ void loop()
     case 50: // 2 --shift to 2nd gear
     {
       CommandedGear = 2;
-      ShiftingTimer.start(500,defaultcurves[0]);
+      ShiftingTimer.start(500,defaultcurves[FirstUP]);
       break;
     }
     case 51: // 3 --shift to 3rd gear
     {
+      ShiftingTimer.start(500,defaultcurves[SecondUp]);
       CommandedGear = 3;
       break;
     }
     case 52: // 4 --shift to 4th gear
     {
+      ShiftingTimer.start(500,defaultcurves[ThirdUp]);
       CommandedGear = 4;
       break;
     }
@@ -664,7 +668,7 @@ void MeasureSpeed()
 
 void RegulateEPC()
 {
-  if (enableEPC && manualmode)
+  if (enableEPC)
   {
     if (Load_Avg < 0)
     {
@@ -678,6 +682,7 @@ void RegulateEPC()
     if (ShiftingTimer.isRunning)
     {
       EPCSetpoint = ShiftingTimer.ShiftCurve.PressureWhileShiftingSetpoint;
+      EPCPWM = 255 - pid2.calculate(EPCSetpoint, EPCPressure);
     }
     else
     {
@@ -753,7 +758,10 @@ void PrintInfo()
   Serial.print(enabletcc);
 
   Serial.print(",CurrentGear:");
-  Serial.println(CurrentGear);
+  Serial.print(CurrentGear);
+
+  Serial.print(",CurrentSpeed:");
+  Serial.println(OSS_Avg_Speed);
 }
 
 void DumpInfo()
@@ -962,6 +970,7 @@ int CalculateGear()
 
     if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[FirstUP]);
       return 2;
     }
     else
@@ -973,10 +982,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcCurveValue(SecondUp, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[SecondUp]);
       return 3;
     }
     else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[SecondDown]);
       return 1;
     }
     else
@@ -988,10 +999,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcCurveValue(ThirdUp, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[ThirdUp]);
       return 4;
     }
     else if (OSS_Avg_Speed < (CalcCurveValue(ThirdDown, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[ThirdDown]);
       return 2;
     }
     else
@@ -1003,6 +1016,7 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed < (CalcCurveValue(FourthDown, Load_Avg)))
     {
+      ShiftingTimer.start(500,defaultcurves[FourthDown]);
       return 3;
     }
     else
