@@ -1,10 +1,14 @@
 // https://wokwi.com/projects/new/arduino-uno
-//https://ww2-secure.justanswer.com/uploads/bobover/2011-02-05_023022_line_pressure_test_4r70w.pdf
+// https://ww2-secure.justanswer.com/uploads/bobover/2011-02-05_023022_line_pressure_test_4r70w.pdf
 
-const String Version = "11.27.23.1";
+const String VERSION = "11.27.23.1";
+// const bool ENABLE_CAN_BUS;
 
+#ifdef ENABLE_CAN_BUS
 #include <SPI.h>
 #include <mcp2515.h>
+#endif
+
 // https://github.com/autowp/arduino-mcp2515
 
 #pragma region notes
@@ -32,12 +36,10 @@ const String Version = "11.27.23.1";
 
 #pragma region variables
 
+#ifdef ENABLE_CAN_BUS
 struct can_frame canMsg;
 struct can_frame canMsg1;
-
 MCP2515 mcp2515(48);
-const int tpsindex = 2; // this is the id of the realtime data broadcasting packet
-const int dataindex = 0;
 struct BroadcastPacket
 {
   long recvdtime = 0;
@@ -50,6 +52,7 @@ struct BroadcastPacket
 };
 
 BroadcastPacket bp = {};
+#endif
 
 enum CurveName
 {
@@ -91,59 +94,130 @@ Curve olddefaultcurves[6] = {
     {FourthDown, 13.4, 119.4}};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 10, 40, 0, 100, 100},
-    {SecondDown, 5, 30, 0, 100, 100},
-    {SecondUp, 30, 70, 0, 100, 100},
-    {ThirdDown, 20, 50, 0, 100, 100},
-    {ThirdUp, 50, 100, 0, 100, 100},
-    {FourthDown, 35, 80, 0, 100, 100}};
+    {FirstUP, 10, 40, 0, 20, 50},
+    {SecondDown, 5, 30, 0, 20, 50},
+    {SecondUp, 30, 70, 0, 20, 50},
+    {ThirdDown, 20, 50, 0, 20, 50},
+    {ThirdUp, 50, 100, 0, 20, 50},
+    {FourthDown, 35, 80, 0, 20, 50}};
+
+class Timer
+{
+private:
+  unsigned long currentTime;
+  int timerLength;
+  void (*callback)();
+
+public:
+  Timer(void (*callback)() = NULL, int length = 0)
+  {
+    this->callback = callback;
+    this->timerLength = length;
+  }
+
+  unsigned long timerLastStart;
+  unsigned long timerLastStop;
+  bool isRunning;
+  Curve ShiftCurve;
+
+  void start(int length, Curve curve)
+  {
+    currentTime = millis();
+    timerLastStart = currentTime;
+    timerLastStop = 0;
+    timerLength = length;
+    ShiftCurve = curve;
+    isRunning = true;
+  }
+
+  void stop()
+  {
+    currentTime = millis();
+    timerLastStop = currentTime;
+  }
+
+  /// @return start - current
+  unsigned long ElapsedTime()
+  {
+    return currentTime - timerLastStart;
+  }
+
+  bool timerExpired()
+  {
+    currentTime = millis();
+    if (currentTime > (timerLastStart + timerLength))
+      return true;
+    else
+      return false;
+  }
+
+  void Run()
+  {
+    if (!this->isRunning)
+    {
+      return;
+    }
+
+    // increment the timers
+    currentTime = millis();
+    if (this->timerExpired())
+    {
+      this->isRunning = false;
+      if (this->callback != NULL)
+      {
+        this->callback();
+      }
+    }
+  }
+};
 
 class PID
 {
-  private:
-    double Kp;
-    double Ki;
-    double Kd;
+private:
+  double Kp;
+  double Ki;
+  double Kd;
 
-    double pre_error;
-    double integral;
-    double lastOutput;
+  double pre_error;
+  double integral;
+  double lastOutput;
 
-  public:
-    // Constructor
-    PID(double P, double I, double D) : Kp(P), Ki(I), Kd(D), pre_error(0), integral(0) {}
+public:
+  // Constructor
+  PID(double P, double I, double D) : Kp(P), Ki(I), Kd(D), pre_error(0), integral(0) {}
 
-    int calculate(double setpoint, double pv)
+  int calculate(double setpoint, double pv)
+  {
+    // Calculate error
+    double error = setpoint - pv;
+
+    // Proportional term
+    double Pout = Kp * error;
+
+    // clamping the Integral term
+    if (lastOutput < 255 && lastOutput > 0)
     {
-      // Calculate error
-      double error = setpoint - pv;
-
-      // Proportional term
-      double Pout = Kp * error;
-
-      // clamping the Integral term
-      if (lastOutput < 255 && lastOutput > 0) {
-        integral += error;
-      }
-
-      double Iout = Ki * integral;
-
-      // Derivative term
-      double derivative = (error - pre_error);
-      double Dout = Kd * derivative;
-
-      // Calculate total output
-      int output = (int) Pout + Iout + Dout;
-
-      // Save error to next loop
-      pre_error = error;
-
-      //clamp the output
-      output = constrain(output, 0, 255);
-      lastOutput = output;
-
-      return output;
+      integral += error;
     }
+
+    double Iout = Ki * integral;
+
+    // Derivative term
+    double derivative = (error - pre_error);
+    double Dout = Kd * derivative;
+
+    // Calculate total output
+    int output = (int)Pout + Iout + Dout;
+
+    // Save error to next loop
+    pre_error = error;
+
+    // clamp the output
+    output = constrain(output, 0, 255);
+    lastOutput = output;
+
+    return output;
+  }
 };
 PID pid(.02, 0.02, .01);
 int EPCSetpoint = 130;
@@ -151,30 +225,22 @@ int EPCSetpoint = 130;
 // INPUTS
 const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
-const byte LinePressure_Pin = A7;
-const byte EPCPressure_Pin = A6;
+const byte LINE_PRESSURE_PIN = A7;
+const byte EPC_PRESSURE_PIN = A6;
 
 // OUTPUTS
-int TCC_Pin = 2; // make sure this is an analog pin
-int SolA_Pin = 4;
-int SolB_Pin = 3;
-int EPC_Pin = 5; // make sure this is an analog pin
+const int TCC_PIN = 2; // make sure this is an analog pin
+const int SOL_A_Pin = 4;
+const int SOL_B_Pin = 3;
+const int EPC_PIN = 5; // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
 const double GearRatio = 3.55;
 const double TireSize = 33;
 
-const int TCC_Max = 0.75 * 255;
-const int TCC_Min = 0.3 * 255;
-const double TCC_Seconds_Before = .1;
-
 const int ISS_Smoothing = 5;
 const int OSS_Smoothing = 20;
-
-const int EPC_Start_Time = 50;
-int EPC_Start_PWM = 220;
-int EPC_Y_INT = 40;
 
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
@@ -201,9 +267,6 @@ unsigned long OSS_Current_Mircros;
 unsigned long Shift_Previous_Millis;
 unsigned long Shift_Current_Millis;
 
-unsigned long TCC_Previous_Millis;
-unsigned long TCC_Current_Millis;
-
 // testing variables
 bool enableEPC = true;
 bool enabletcc = false;
@@ -212,9 +275,13 @@ bool manualmode = 1;
 bool loggingenabled = 1;
 int cmd = -1;
 
-bool waitingtcc = false;
+// Timers
+Timer ShiftingTimer(Shift);
+Timer TCCTimer;
+
+bool tccTimer = false;
 bool shifting = false;
-int CurrentGear = 1;
+int CurrentGear = 0;
 
 int CommandedGear = 1;
 // int DesiredGear = 0; not needed?
@@ -222,28 +289,29 @@ int CommandedGear = 1;
 
 void setup()
 {
-  pinMode(TCC_Pin, OUTPUT);
-  pinMode(SolA_Pin, OUTPUT);
-  pinMode(SolB_Pin, OUTPUT);
-  pinMode(EPC_Pin, OUTPUT);
+  pinMode(TCC_PIN, OUTPUT);
+  pinMode(SOL_A_Pin, OUTPUT);
+  pinMode(SOL_B_Pin, OUTPUT);
+  pinMode(EPC_PIN, OUTPUT);
 
   pinMode(ISS_Pin, INPUT);
   pinMode(OSS_Pin, INPUT);
-  pinMode(LinePressure_Pin, INPUT);
-  pinMode(EPCPressure_Pin, INPUT);
+  pinMode(LINE_PRESSURE_PIN, INPUT);
+  pinMode(EPC_PRESSURE_PIN, INPUT);
 
+#ifdef ENABLE_CAN_BUS
   // Can Bus stuff
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
+#endif
 
   Serial.begin(9600);
-  Serial.println(Version);
-
-  digitalWrite(SolA_Pin, HIGH);
-  digitalWrite(SolB_Pin, LOW);
+  Serial.println(VERSION);
 
   OSS_Previous_Mircros = micros();
+
+  Shift();
 
   if (!verifycurves())
   {
@@ -257,11 +325,13 @@ void setup()
 
 void loop()
 {
-////////////
+  // run the timers
+  ShiftingTimer.Run();
+
   cmd = Serial.read();
-    MeasurePressures();
-  // Serial.print(bp.tpsvalue); //n/a
-  // Serial.println("%");
+  MeasurePressures();
+  RegulateEPC();
+  CheckShift();
 
   if (cmd == 109) // m --toggle mode
     manualmode = !manualmode;
@@ -273,43 +343,37 @@ void loop()
     case 49: // 1 --shift to 1st gear
     {
       CommandedGear = 1;
-      Shift();
       break;
     }
     case 50: // 2 --shift to 2nd gear
     {
       CommandedGear = 2;
-      Shift();
+      ShiftingTimer.start(500,defaultcurves[0]);
       break;
     }
     case 51: // 3 --shift to 3rd gear
     {
       CommandedGear = 3;
-      Shift();
       break;
     }
     case 52: // 4 --shift to 4th gear
     {
       CommandedGear = 4;
-      Shift();
       break;
     }
     case 48: // 0 --shift to imaginary 0th gear
     {
       CommandedGear = 0;
-      Shift();
       break;
     }
     case 53: // 4 --shift to imaginary 5th gear
     {
       CommandedGear = 5;
-      Shift();
       break;
     }
     case 54: // 6 --shift to imaginary 6th gear
     {
       CommandedGear = 6;
-      Shift();
       break;
     }
     case 55: // 7 --shift to imaginary -1th gear
@@ -324,7 +388,7 @@ void loop()
 
       // shutdown epc. should probably be a function
       EPCSetpoint = 0;
-      analogWrite(EPC_Pin, EPCSetpoint);
+      analogWrite(EPC_PIN, EPCSetpoint);
 
       Serial.print("EPC = ");
       Serial.println(enableEPC);
@@ -337,11 +401,11 @@ void loop()
       Serial.println(enabletcc);
       if (enabletcc)
       {
-        digitalWrite(TCC_Pin, HIGH);
+        digitalWrite(TCC_PIN, HIGH);
       }
       else
       {
-        digitalWrite(TCC_Pin, LOW);
+        digitalWrite(TCC_PIN, LOW);
       }
 
       break;
@@ -464,49 +528,24 @@ void loop()
       Serial.println("");
     }
     cmd = -1;
-
-    if (enableEPC)
-    {
-      RegulateEPC();
-    }
-
-    if (enabletestshifting)
-    {
-      if (CommandedGear != CurrentGear)
-        Shift();
-    }
-
-    if (OSS_Speed_Change || Load_Change)
-    {
-      OSS_Speed_Change = false;
-      Load_Change = false;
-      CheckShift();
-    }
   }
   else
   {
+    // TODO probably need to add this back in to main loop
     MeasureSpeed();
-
-    RegulateEPC();
-
-    if (OSS_Speed_Change)
-    {
-      CheckShift();
-      OSS_Speed_Change = false;
-    }
-
-    if (CommandedGear != CurrentGear)
-      Shift();
   }
 
+#ifdef ENABLE_CAN_BUS
+  // TODO break this out into a function. inside getcanpacket it does global var stuff
   BroadcastPacket lol = GetCanPacket();
   if (lol.dataid == 1523)
   {
-
     Load_Avg = lol.tpsvalue;
   }
+#endif
 }
 
+#ifdef ENABLE_CAN_BUS
 BroadcastPacket GetCanPacket()
 {
   BroadcastPacket bptemp = {};
@@ -545,19 +584,19 @@ BroadcastPacket GetCanPacket()
       else if (canMsg.data[0])
       { // off
         Serial.println("OFF detected!!");
-        EPC_Y_INT = EPC_Y_INT - 10;
+        EPCSetpoint = EPCSetpoint - 10;
       }
       else if (canMsg.data[1])
       { // on
         Serial.println("ON detected!!");
-        EPC_Y_INT = EPC_Y_INT + 10;
+        EPCSetpoint = EPCSetpoint + 10;
       }
       else if (canMsg.data[4])
       { // TCC
         Serial.println("RES detected!!");
         enabletcc = !enabletcc;
 
-        digitalWrite(TCC_Pin, enabletcc);
+        digitalWrite(TCC_PIN, enabletcc);
       }
 
       // send message
@@ -570,6 +609,7 @@ BroadcastPacket GetCanPacket()
   }
   return bptemp;
 }
+#endif
 
 void MeasureSpeed()
 {
@@ -617,26 +657,37 @@ void MeasureSpeed()
     OSSHigh = 0;
     //     Serial.print("OSS HIGH:");
     // Serial.println(1);
-    digitalWrite(13, LOW);
+    // digitalWrite(13, LOW);
     OSS_Previous_Mircros = OSS_Current_Mircros;
   }
 }
 
 void RegulateEPC()
 {
-  if (Load_Avg < 0)
+  if (enableEPC && manualmode)
   {
-    Load_Avg = 0;
-    if (loggingenabled)
+    if (Load_Avg < 0)
     {
-      Serial.println("RegulateEPC(): LOAD too LOW setting to 0 and continuing..");
+      Load_Avg = 0;
+      if (loggingenabled)
+      {
+        Serial.println("RegulateEPC(): LOAD too LOW setting to 0 and continuing..");
+      }
     }
-  }
 
+    if (ShiftingTimer.isRunning)
+    {
+      EPCSetpoint = ShiftingTimer.ShiftCurve.PressureWhileShiftingSetpoint;
+    }
+    else
+    {
+      if (ShiftingTimer.ShiftCurve.PressureInGearSetpoint != 0)
+      {
+        EPCSetpoint = ShiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
+      }
 
-    EPCSetpoint = 100 + Load_Avg;
-
-    EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
+      EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
+    }
 
     if (EPCPWM > 255)
     {
@@ -658,35 +709,35 @@ void RegulateEPC()
     }
 
     // Serial.println(EPCSetpoint);
-    analogWrite(EPC_Pin, EPCPWM);
+    analogWrite(EPC_PIN, EPCPWM);
     PrintInfo();
-  
+  }
 }
 
 void DetermineTCCLockup()
 {
-  TCC_Current_Millis = millis();
+  // TCC_Current_Millis = millis();
 
-  if (TCC_Current_Millis - TCC_Previous_Millis > .25)
-    waitingtcc = false;
+  // if (TCC_Current_Millis - TCC_Previous_Millis > .25)
+  //   waitingtcc = false;
 
-  TCC_Previous_Millis = TCC_Current_Millis;
+  // TCC_Previous_Millis = TCC_Current_Millis;
 
-  // TODO make this a function of load_avg + temp + rpm
-  if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
-  {
-    analogWrite(TCC_Pin, TCC_Max);
-    waitingtcc = true;
-  }
-  else
-    analogWrite(TCC_Pin, 0);
+  // // TODO make this a function of load_avg + temp + rpm
+  // if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
+  // {
+  //   analogWrite(TCC_PIN, TCC_Max);
+  //   waitingtcc = true;
+  // }
+  // else
+  analogWrite(TCC_PIN, 0);
 }
 
 void PrintInfo()
 {
   Serial.print("epcpwm:");
   Serial.print(EPCPWM);
-    Serial.print(",epcpressuresetpoint:");
+  Serial.print(",epcpressuresetpoint:");
   Serial.print(EPCSetpoint);
 
   Serial.print(",load:");
@@ -742,7 +793,14 @@ void DumpInfo()
 
 void CheckShift()
 {
-  CommandedGear = CalculateGear();
+  if (!manualmode)
+  {
+    if (!ShiftingTimer.isRunning)
+    {
+      CommandedGear = CalculateGear();
+    }
+  }
+
   if (loggingenabled)
   {
     // Serial.print("CheckShift(): current/commanded: ");
@@ -762,15 +820,17 @@ void CheckShift()
     // Serial.println(OSS_Avg_Speed);
   }
 }
+
 void MeasurePressures()
 {
   //.29 is used to convert the 0-5v 0-300psi signal to 0-255
-  LinePressure = analogRead(LinePressure_Pin) * .29;
-  EPCPressure = analogRead(EPCPressure_Pin) * .29;
+  LinePressure = analogRead(LINE_PRESSURE_PIN) * .29;
+  EPCPressure = analogRead(EPC_PRESSURE_PIN) * .29;
 }
 
 void Shift()
 {
+  Serial.println("Shif()");
 
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
@@ -786,17 +846,6 @@ void Shift()
   // }
 
   // give tcc time to lock before shifting again?
-  Shift_Current_Millis = millis();
-  if (Shift_Current_Millis - Shift_Previous_Millis > .1)
-  {
-    shifting = false;
-  }
-  else
-  {
-    shifting = true;
-  }
-
-  Shift_Previous_Millis = Shift_Current_Millis;
 
   if (CurrentGear - CommandedGear > 1)
   {
@@ -842,33 +891,33 @@ void Shift()
   }
   // disable tcc for smoother shift
   enabletcc = false;
-  digitalWrite(TCC_Pin, 0);
+  digitalWrite(TCC_PIN, 0);
 
   if (CommandedGear == 1)
   {
-    digitalWrite(SolA_Pin, HIGH);
-    digitalWrite(SolB_Pin, LOW);
+    digitalWrite(SOL_A_Pin, HIGH);
+    digitalWrite(SOL_B_Pin, LOW);
     // Serial.println("here1");
     CurrentGear = 1;
   }
   else if (CommandedGear == 2)
   {
-    digitalWrite(SolA_Pin, LOW);
-    digitalWrite(SolB_Pin, LOW);
+    digitalWrite(SOL_A_Pin, LOW);
+    digitalWrite(SOL_B_Pin, LOW);
     // Serial.println("here2");
     CurrentGear = 2;
   }
   else if (CommandedGear == 3)
   {
-    digitalWrite(SolA_Pin, LOW);
-    digitalWrite(SolB_Pin, HIGH);
+    digitalWrite(SOL_A_Pin, LOW);
+    digitalWrite(SOL_B_Pin, HIGH);
     // Serial.println("here3");
     CurrentGear = 3;
   }
   else if (CommandedGear == 4)
   {
-    digitalWrite(SolA_Pin, HIGH);
-    digitalWrite(SolB_Pin, HIGH);
+    digitalWrite(SOL_A_Pin, HIGH);
+    digitalWrite(SOL_B_Pin, HIGH);
     // Serial.println("here4");
     CurrentGear = 4;
   }
