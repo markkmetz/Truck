@@ -195,10 +195,10 @@ public:
     double Pout = Kp * error;
 
     // clamping the Integral term
-    if (lastOutput < 255 && lastOutput > 0)
-    {
-      integral += error;
-    }
+
+    integral += error;
+
+    integral = constrain(integral,-1000,1000);
 
     double Iout = Ki * integral;
 
@@ -211,16 +211,18 @@ public:
 
     // Save error to next loop
     pre_error = error;
-
+  
     // clamp the output
-    output = constrain(output, 0, 255);
+    
     lastOutput = output;
+    output = constrain(output, 0, 255);
+    
 
     return output;
   }
 };
-PID pid(.02, 0.02, .01);
-PID pid2(.2,.5,.1);
+PID pid(2, 2, 1);
+
 
 int EPCSetpoint = 50;
 
@@ -682,7 +684,7 @@ void RegulateEPC()
     if (ShiftingTimer.isRunning)
     {
       EPCSetpoint = ShiftingTimer.ShiftCurve.PressureWhileShiftingSetpoint;
-      EPCPWM = 255 - pid2.calculate(EPCSetpoint, EPCPressure);
+      
     }
     else
     {
@@ -691,9 +693,11 @@ void RegulateEPC()
         EPCSetpoint = ShiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
       }
 
-      EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
+      
     }
-
+    
+    EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
+    
     if (EPCPWM > 255)
     {
       EPCPWM = 255;
