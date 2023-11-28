@@ -1,6 +1,6 @@
 // https://wokwi.com/projects/new/arduino-uno
 
-const String Version = "11.24.23.1";
+const String Version = "11.27.23.1";
 
 #include <SPI.h>
 #include <mcp2515.h>
@@ -154,10 +154,10 @@ const byte LinePressure_Pin = A7;
 const byte EPCPressure_Pin = A6;
 
 // OUTPUTS
-int TCC_Pin = 3; // make sure this is an analog pin
+int TCC_Pin = 2; // make sure this is an analog pin
 int SolA_Pin = 4;
-int SolB_Pin = 5;
-int EPC_Pin = 2; // make sure this is an analog pin
+int SolB_Pin = 3;
+int EPC_Pin = 5; // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
@@ -180,6 +180,7 @@ bool Load_Change = false; // not used except for testing? TODO
 double Load_Avg = 0;
 int LinePressure;
 int EPCPressure;
+int EPCPWM = 0;
 
 double ISS[ISS_Smoothing];
 
@@ -213,10 +214,6 @@ int cmd = -1;
 bool waitingtcc = false;
 bool shifting = false;
 int CurrentGear = 1;
-
-unsigned long EPC_Start_Millis;
-
-int EPCSetpoint = 0;
 
 int CommandedGear = 1;
 // int DesiredGear = 0; not needed?
@@ -261,7 +258,7 @@ void loop()
 {
 ////////////
   cmd = Serial.read();
-
+    MeasurePressures();
   // Serial.print(bp.tpsvalue); //n/a
   // Serial.println("%");
 
@@ -635,32 +632,10 @@ void RegulateEPC()
     }
   }
 
-  unsigned long epctemptime = millis();
 
-  if (EPCSetpoint == 0 && EPC_Start_Millis == 0)
-  {
-    EPC_Start_Millis = epctemptime;
+    EPCSetpoint = 100 + Load_Avg;
 
-    if (loggingenabled)
-      Serial.println("epc starting up.. ");
-  }
-
-  if (epctemptime - EPC_Start_Millis < EPC_Start_Time)
-  {
-    // Start up
-    analogWrite(EPC_Pin, EPC_Start_PWM);
-
-    if (loggingenabled)
-    {
-      Serial.print("epc startup pwm: ");
-      Serial.println(EPC_Start_PWM);
-    }
-  }
-  else
-  {
-    EPCSetpoint = Load_Avg + 130;
-
-    int EPCPWM = 255 - pid.calculate(setpoint, EPCPressure);
+    EPCPWM = 255 - pid.calculate(EPCSetpoint, EPCPressure);
 
     if (EPCPWM > 255)
     {
@@ -683,7 +658,8 @@ void RegulateEPC()
 
     // Serial.println(EPCSetpoint);
     analogWrite(EPC_Pin, EPCPWM);
-  }
+    PrintInfo();
+  
 }
 
 void DetermineTCCLockup()
@@ -707,17 +683,19 @@ void DetermineTCCLockup()
 
 void PrintInfo()
 {
-  Serial.print("epc:");
+  Serial.print("epcpwm:");
+  Serial.print(EPCPWM);
+    Serial.print(",epcpressuresetpoint:");
   Serial.print(EPCSetpoint);
 
   Serial.print(",load:");
   Serial.print(Load_Avg);
 
   Serial.print(",Line:");
-  Serial.print(analogRead(A7) * .29);
+  Serial.print(LinePressure);
 
   Serial.print(",EPC_Press:");
-  Serial.print("");
+  Serial.print(EPCPressure);
 
   Serial.print(",tcc:");
   Serial.print(enabletcc);
