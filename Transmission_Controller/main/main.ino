@@ -40,7 +40,7 @@ MCP2515 mcp2515(48);
 struct BroadcastPacket
 {
   long recvdtime = 0;
-  int tpsvalue;
+  int tpsValue;
   // int dataid = 1523;  //this is the id of the realtime data broadcasting packet
   int dataid = -13;
   int other1;
@@ -264,6 +264,7 @@ double Load_Avg = 0;
 int LinePressure;
 int EPCPressure;
 int EPCPWM = 0;
+int rpmValue;
 
 int ISS[ISS_Smoothing];
 int OSS[OSS_Smoothing];
@@ -569,10 +570,7 @@ void loop()
 
   // TODO break this out into a function. inside getcanpacket it does global var stuff
   BroadcastPacket lol = GetCanPacket();
-  if (lol.dataid == 1523)
-  {
-    Load_Avg = lol.tpsvalue;
-  }
+
 }
 
 BroadcastPacket GetCanPacket()
@@ -582,13 +580,11 @@ BroadcastPacket GetCanPacket()
   {
     if (canMsg.can_id == 1523)
     {
-
       bptemp.dataid = canMsg.can_id;
-      bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
-      bptemp.tpsvalue = bptemp.tpsvalue / 10;
+      Load_Avg = canMsg.data[1] | canMsg.data[0] << 8;
     }
     // Serial.println(canMsg.can_id);
-    if (canMsg.can_id == 1601)
+    else if (canMsg.can_id == 1601)
     {
       manualmode = 1;
       if (canMsg.data[3])
@@ -635,6 +631,9 @@ BroadcastPacket GetCanPacket()
       canMsg1.data[0] = CommandedGear;
       canMsg1.data[1] = enabletcc;
       mcp2515.sendMessage(&canMsg1);
+    }
+    else if(canMsg.can_id == 1520){      
+      rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
     }
   }
   return bptemp;
