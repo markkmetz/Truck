@@ -106,8 +106,8 @@ struct Curve2
 };
 
 Curve2 bettercurves[6] = {
-{FirstUP,     {5, 5, 7, 8, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
-{SecondDown,     {2, 2, 3, 3, 4, 5, 10, 17, 23, 30, 30}, 0, 1},
+{FirstUP,     {5, 5, 6, 6, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
+{SecondDown,     {4, 4, 4, 4, 4, 4, 4, 17, 23, 30, 30}, 0, 1},
 {SecondUp,     {10, 10, 16, 29, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
 {ThirdDown,     {8, 8, 12, 18, 21, 27, 30, 36, 42, 50, 50}, 0, 1},
 {ThirdUp,     {30, 31, 33, 48, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
@@ -783,7 +783,7 @@ void DetermineTCCLockup()
 
 void PrintInfo()
 {
-  if (millis() - lastwritetime > 500)
+  if (millis() - lastwritetime > 100)
   {
     Serial.print("Data::");
     Serial.print("epcpwm:");

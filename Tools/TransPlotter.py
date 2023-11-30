@@ -63,7 +63,7 @@ def printnewstuff():
         cname = enumcurve(i)
         str1 = "{" + str(cname) + "," + "     {"
         str2 = ""
-        for x in data[cname]:
+        for x in data[cname]:``
             str2 += str(x) + ", "
         str2 = str2[0:-2]
         str3 = "}, 0, 1}"
