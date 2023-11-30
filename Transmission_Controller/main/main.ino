@@ -4,10 +4,8 @@
 const String VERSION = "11.27.23.1";
 // const bool ENABLE_CAN_BUS;
 
-
 #include <SPI.h>
 #include <mcp2515.h>
-
 
 // https://github.com/autowp/arduino-mcp2515
 
@@ -36,7 +34,6 @@ const String VERSION = "11.27.23.1";
 
 #pragma region variables
 
-
 struct can_frame canMsg;
 struct can_frame canMsg1;
 MCP2515 mcp2515(48);
@@ -52,7 +49,6 @@ struct BroadcastPacket
 };
 
 BroadcastPacket bp = {};
-
 
 enum CurveName
 {
@@ -100,6 +96,23 @@ Curve defaultcurves[6] = {
     {ThirdDown, 20, 50, 0, 20, 50},
     {ThirdUp, 50, 100, 0, 20, 50},
     {FourthDown, 35, 80, 0, 20, 50}};
+
+struct Curve2
+{
+  CurveName curvename;
+  int shiftpoints[11];
+  int PressureWhileShiftingSetpoint;
+  int PressureInGearSetpoint;
+};
+
+Curve2 bettercurves[6] = {
+{FirstUP,     {7, 7, 10, 12, 15, 18, 22, 27, 33, 40, 40}, 0, 1},
+{SecondDown,     {3, 3, 5, 5, 5, 5, 10, 17, 23, 30, 30}, 0, 1},
+{SecondUp,     {30, 30, 30, 30, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
+{ThirdDown,     {20, 21, 22, 22, 24, 27, 30, 36, 42, 50, 50}, 0, 1},
+{ThirdUp,     {46, 46, 50, 50, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
+{FourthDown,     {35, 35, 36, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}
+};
 
 class Timer
 {
@@ -303,12 +316,10 @@ void setup()
   pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
-
   // Can Bus stuff
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
-
 
   Serial.begin(9600);
   Serial.println(VERSION);
@@ -542,16 +553,13 @@ void loop()
     MeasureSpeed();
   }
 
-
   // TODO break this out into a function. inside getcanpacket it does global var stuff
   BroadcastPacket lol = GetCanPacket();
   if (lol.dataid == 1523)
   {
     Load_Avg = lol.tpsvalue;
   }
-
 }
-
 
 BroadcastPacket GetCanPacket()
 {
@@ -560,7 +568,7 @@ BroadcastPacket GetCanPacket()
   {
     if (canMsg.can_id == 1523)
     {
-      
+
       bptemp.dataid = canMsg.can_id;
       bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
       bptemp.tpsvalue = bptemp.tpsvalue / 10;
@@ -617,7 +625,6 @@ BroadcastPacket GetCanPacket()
   }
   return bptemp;
 }
-
 
 void MeasureSpeed()
 {
