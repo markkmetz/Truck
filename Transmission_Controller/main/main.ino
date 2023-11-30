@@ -90,12 +90,12 @@ Curve olddefaultcurves[6] = {
     {FourthDown, 13.4, 119.4}};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 5, 35, 0, 20, 50},
-    {SecondDown, 4, 30, 0, 20, 50},
-    {SecondUp, 30, 70, 0, 20, 50},
-    {ThirdDown, 20, 50, 0, 20, 50},
-    {ThirdUp, 50, 100, 0, 20, 50},
-    {FourthDown, 35, 80, 0, 20, 50}};
+    {FirstUP, 5, 35, 0, 50, 110},
+    {SecondDown, 4, 30, 0, 50, 100},
+    {SecondUp, 30, 70, 0, 50, 100},
+    {ThirdDown, 20, 50, 0, 50, 100},
+    {ThirdUp, 50, 100, 0, 50, 100},
+    {FourthDown, 35, 80, 0, 50, 100}};
 
 struct Curve2
 {
@@ -106,13 +106,13 @@ struct Curve2
 };
 
 Curve2 bettercurves[6] = {
-    {FirstUP, {7, 7, 10, 12, 15, 18, 22, 27, 33, 40, 40}, 0, 1},
-    {SecondDown, {3, 3, 5, 5, 5, 5, 10, 17, 23, 30, 30}, 0, 1},
-    {SecondUp, {30, 30, 30, 30, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
-    {ThirdDown, {20, 21, 22, 22, 24, 27, 30, 36, 42, 50, 50}, 0, 1},
-    {ThirdUp, {46, 46, 50, 50, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
-    {FourthDown, {35, 35, 36, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}};
-
+{FirstUP,     {5, 5, 7, 8, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
+{SecondDown,     {2, 2, 3, 3, 4, 5, 10, 17, 23, 30, 30}, 0, 1},
+{SecondUp,     {10, 10, 16, 29, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
+{ThirdDown,     {8, 8, 12, 18, 21, 27, 30, 36, 42, 50, 50}, 0, 1},
+{ThirdUp,     {30, 31, 33, 48, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
+{FourthDown,     {24, 25, 28, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}
+};
 class Timer
 {
 private:
@@ -233,7 +233,7 @@ public:
     return output;
   }
 };
-PID pid(.1, .1, .1);
+PID pid(.5, .5, .5);
 
 int EPCSetpoint = 50;
 
@@ -582,6 +582,7 @@ BroadcastPacket GetCanPacket()
     {
       bptemp.dataid = canMsg.can_id;
       Load_Avg = canMsg.data[1] | canMsg.data[0] << 8;
+      Load_Avg = Load_Avg/10;
     }
     // Serial.println(canMsg.can_id);
     else if (canMsg.can_id == 1601)
@@ -648,7 +649,7 @@ void MeasureSpeed()
   double hz;
 
   unsigned long duration = pulseIn(OSS_Pin, HIGH);
-  float frequency = 1000000.0 / (2.0 * duration);
+  float frequency = 1000000.0 / (1.0 * duration);
 
   // hz = (0.5 / timebetween) * 1000000;
 
@@ -683,7 +684,7 @@ void MeasureISS()
   double hz;
 
   unsigned long duration = pulseIn(ISS_Pin, HIGH);
-  float frequency = 1000000.0 / (2.0 * duration);
+  float frequency = 1000000.0 / (1.0 * duration);
 
   // hz = (0.5 / timebetween) * 1000000;
 

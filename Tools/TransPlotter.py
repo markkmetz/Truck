@@ -2,7 +2,7 @@ import enum
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 import numpy as np
-filename = 'Transmission_Controller\main\main.ino'
+filename = 'Transmission_Controller/main/main.ino'
 line_number =108
 fig, ax = plt.subplots()
 l = 0

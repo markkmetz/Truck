@@ -15,7 +15,7 @@ filename = f'arduino_data_{formatted_date}.csv'
 
 
 # Open the serial port.
-ser = serial.Serial('COM9', 9600)
+ser = serial.Serial('/dev/cu.usbmodem1201', 9600)
 
 ser.reset_input_buffer()
 
