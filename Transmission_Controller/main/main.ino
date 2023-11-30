@@ -4,10 +4,10 @@
 const String VERSION = "11.27.23.1";
 // const bool ENABLE_CAN_BUS;
 
-#ifdef ENABLE_CAN_BUS
+
 #include <SPI.h>
 #include <mcp2515.h>
-#endif
+
 
 // https://github.com/autowp/arduino-mcp2515
 
@@ -36,7 +36,7 @@ const String VERSION = "11.27.23.1";
 
 #pragma region variables
 
-#ifdef ENABLE_CAN_BUS
+
 struct can_frame canMsg;
 struct can_frame canMsg1;
 MCP2515 mcp2515(48);
@@ -52,7 +52,7 @@ struct BroadcastPacket
 };
 
 BroadcastPacket bp = {};
-#endif
+
 
 enum CurveName
 {
@@ -94,8 +94,8 @@ Curve olddefaultcurves[6] = {
     {FourthDown, 13.4, 119.4}};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 10, 40, 0, 20, 50},
-    {SecondDown, 5, 30, 0, 20, 50},
+    {FirstUP, 5, 35, 0, 20, 50},
+    {SecondDown, 4, 30, 0, 20, 50},
     {SecondUp, 30, 70, 0, 20, 50},
     {ThirdDown, 20, 50, 0, 20, 50},
     {ThirdUp, 50, 100, 0, 20, 50},
@@ -221,7 +221,7 @@ public:
     return output;
   }
 };
-PID pid(2, 2, 1);
+PID pid(.1, .1, .1);
 
 int EPCSetpoint = 50;
 
@@ -275,7 +275,7 @@ unsigned long Shift_Current_Millis;
 bool enableEPC = true;
 bool enabletcc = false;
 bool enabletestshifting = false;
-bool manualmode = 1;
+bool manualmode = 0;
 bool loggingenabled = 1;
 int cmd = -1;
 
@@ -303,12 +303,12 @@ void setup()
   pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
-#ifdef ENABLE_CAN_BUS
+
   // Can Bus stuff
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
-#endif
+
 
   Serial.begin(9600);
   Serial.println(VERSION);
@@ -542,17 +542,17 @@ void loop()
     MeasureSpeed();
   }
 
-#ifdef ENABLE_CAN_BUS
+
   // TODO break this out into a function. inside getcanpacket it does global var stuff
   BroadcastPacket lol = GetCanPacket();
   if (lol.dataid == 1523)
   {
     Load_Avg = lol.tpsvalue;
   }
-#endif
+
 }
 
-#ifdef ENABLE_CAN_BUS
+
 BroadcastPacket GetCanPacket()
 {
   BroadcastPacket bptemp = {};
@@ -560,6 +560,7 @@ BroadcastPacket GetCanPacket()
   {
     if (canMsg.can_id == 1523)
     {
+      
       bptemp.dataid = canMsg.can_id;
       bptemp.tpsvalue = canMsg.data[1] | canMsg.data[0] << 8;
       bptemp.tpsvalue = bptemp.tpsvalue / 10;
@@ -616,7 +617,7 @@ BroadcastPacket GetCanPacket()
   }
   return bptemp;
 }
-#endif
+
 
 void MeasureSpeed()
 {
