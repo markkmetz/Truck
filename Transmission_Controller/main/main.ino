@@ -430,7 +430,7 @@ void loop()
     }
     case 108: // l --increment fake load data
     {
-      Load_Avg = Load_Avg + 10;
+      Load_Avg = Load_Avg + 3;
       Serial.print("Load is set to: ");
       Serial.println(Load_Avg);
 
@@ -439,7 +439,7 @@ void loop()
     }
     case 76: // L --decrement fake load data
     {
-      Load_Avg = Load_Avg - 10;
+      Load_Avg = Load_Avg - 3;
       Serial.print("Load is set to: ");
       Serial.println(Load_Avg);
 
@@ -455,7 +455,7 @@ void loop()
     {
       OSS_Avg_Speed;
 
-      int newspeed = OSS_Avg_Speed + 10;
+      int newspeed = OSS_Avg_Speed + 3;
       if (newspeed > 130)
         newspeed = -20;
       for (int i = 0; i < OSS_Smoothing; i++)
@@ -473,7 +473,7 @@ void loop()
     {
       OSS_Avg_Speed;
 
-      int newspeed = OSS_Avg_Speed - 5;
+      int newspeed = OSS_Avg_Speed - 3;
       if (newspeed > 130)
         newspeed = -20;
       for (int i = 0; i < OSS_Smoothing; i++)
@@ -736,6 +736,7 @@ void PrintInfo()
 {
   if (millis() - lastwritetime > 500)
   {
+    Serial.print("Data::");
     Serial.print("epcpwm:");
     Serial.print(EPCPWM);
     Serial.print(",epcpressuresetpoint:");
@@ -799,12 +800,9 @@ void DumpInfo()
 
 void CheckShift()
 {
-  if (!manualmode)
+  if (!ShiftingTimer.isRunning)
   {
-    if (!ShiftingTimer.isRunning)
-    {
-      CommandedGear = CalculateGear();
-    }
+    CommandedGear = CalculateGear();
   }
 
   if (loggingenabled)
@@ -1032,7 +1030,27 @@ int CalculateGear()
 double CalcCurveValue(CurveName cname, double load)
 {
   double m = (defaultcurves[cname].y100 - defaultcurves[cname].y0) / 100;
-  return (((m * load) + defaultcurves[cname].y0));
+
+  int l2 = load / 10;
+  // Serial.println("");
+  // Serial.println(cname);
+  // Serial.print("L2: ");
+  // Serial.println(l2);
+  
+  double m2 = (bettercurves[cname].shiftpoints[l2 + 1] - bettercurves[cname].shiftpoints[l2]);
+  // Serial.println(m2);
+
+  //y = mx + b
+  int b = bettercurves[cname].shiftpoints[l2] - l2*m2;
+  // Serial.print("yint: ");
+  // Serial.println(b);
+
+  // Serial.print("curve val: ");
+  // Serial.println((m * l2) + bettercurves[cname].shiftpoints[l2]);
+
+  return (m * l2) + bettercurves[cname].shiftpoints[l2];
+  //Serial.println(m2);
+  //return (((m * load) + defaultcurves[cname].y0));
 }
 
 double getDoubleAverage(double arr[], int size)
