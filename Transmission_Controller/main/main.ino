@@ -106,13 +106,12 @@ struct Curve2
 };
 
 Curve2 bettercurves[6] = {
-{FirstUP,     {7, 7, 10, 12, 15, 18, 22, 27, 33, 40, 40}, 0, 1},
-{SecondDown,     {3, 3, 5, 5, 5, 5, 10, 17, 23, 30, 30}, 0, 1},
-{SecondUp,     {30, 30, 30, 30, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
-{ThirdDown,     {20, 21, 22, 22, 24, 27, 30, 36, 42, 50, 50}, 0, 1},
-{ThirdUp,     {46, 46, 50, 50, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
-{FourthDown,     {35, 35, 36, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}
-};
+    {FirstUP, {7, 7, 10, 12, 15, 18, 22, 27, 33, 40, 40}, 0, 1},
+    {SecondDown, {3, 3, 5, 5, 5, 5, 10, 17, 23, 30, 30}, 0, 1},
+    {SecondUp, {30, 30, 30, 30, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
+    {ThirdDown, {20, 21, 22, 22, 24, 27, 30, 36, 42, 50, 50}, 0, 1},
+    {ThirdUp, {46, 46, 50, 50, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
+    {FourthDown, {35, 35, 36, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}};
 
 class Timer
 {
@@ -252,6 +251,7 @@ const int EPC_PIN = 5; // make sure this is an analog pin
 
 // Constants
 const int OSS_Holes = 12;
+const int ISS_Holes = 12;
 const double GearRatio = 4.56;
 const double TireSize = 33;
 
@@ -265,20 +265,28 @@ int LinePressure;
 int EPCPressure;
 int EPCPWM = 0;
 
-double ISS[ISS_Smoothing];
-
+int ISS[ISS_Smoothing];
 int OSS[OSS_Smoothing];
 double OSS_Speeds[OSS_Smoothing];
+double ISS_Speeds[OSS_Smoothing];
 double OSS_Avg_Speed;
+double ISS_Avg_Speed;
 bool OSS_Speed_Change = false;
+bool ISS_Speed_Change = false;
 int OSS_Speed_Count = 0;
+int ISS_Speed_Count = 0;
 int OSS_Measure_Count = 0;
+int ISS_Measure_Count = 0;
 int OSSHigh = 0;
+int ISSHigh = 0;
+
+float trans_Slippage = 0.00;
 
 // possible overflow in 71.6 minutes. need to accomodate for reset.
 // micros is for oss and
 unsigned long OSS_Previous_Mircros;
 unsigned long OSS_Current_Mircros;
+unsigned long ISS_Current_Mircros;
 unsigned long lastwritetime;
 
 unsigned long Shift_Previous_Millis;
@@ -346,6 +354,12 @@ void loop()
   cmd = Serial.read();
   MeasurePressures();
   MeasureSpeed();
+  if (OSS_Avg_Speed > 10)
+  {
+    MeasureISS();
+  }
+
+  trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
   RegulateEPC();
   CheckShift();
 
@@ -661,6 +675,41 @@ void MeasureSpeed()
   }
 }
 
+void MeasureISS()
+{
+  ISS_Current_Mircros = micros();
+  int reading = digitalRead(ISS_Pin);
+
+  unsigned long timebetween;
+  double hz;
+
+  unsigned long duration = pulseIn(ISS_Pin, HIGH);
+  float frequency = 1000000.0 / (2.0 * duration);
+
+  // hz = (0.5 / timebetween) * 1000000;
+
+  double s = 6.283185307 * (TireSize / 4.00) * (((frequency / ISS_Holes) * GearRatio) / 60) * .1;
+
+  if (s < 140 and s > 0)
+    ISS_Speeds[ISS_Speed_Count] = s;
+  else
+    ISS_Speeds[ISS_Speed_Count] = ISS_Avg_Speed;
+
+  if (ISS_Speed_Count < ISS_Smoothing - 1)
+    ISS_Speed_Count++;
+  else
+  {
+    ISS_Speed_Count = 0;
+  }
+
+  double newspeed = getDoubleAverage(ISS_Speeds, ISS_Smoothing);
+  if (int(newspeed) != int(ISS_Avg_Speed))
+  {
+    ISS_Speed_Change = true;
+    ISS_Avg_Speed = newspeed;
+  }
+}
+
 void RegulateEPC()
 {
   if (enableEPC)
@@ -750,6 +799,9 @@ void PrintInfo()
 
     Serial.print(",EPC_Press:");
     Serial.print(EPCPressure);
+
+    Serial.print(",Slippage:");
+    Serial.print(trans_Slippage);
 
     Serial.print(",tcc:");
     Serial.print(enabletcc);
@@ -1036,12 +1088,12 @@ double CalcCurveValue(CurveName cname, double load)
   // Serial.println(cname);
   // Serial.print("L2: ");
   // Serial.println(l2);
-  
+
   double m2 = (bettercurves[cname].shiftpoints[l2 + 1] - bettercurves[cname].shiftpoints[l2]);
   // Serial.println(m2);
 
-  //y = mx + b
-  int b = bettercurves[cname].shiftpoints[l2] - l2*m2;
+  // y = mx + b
+  int b = bettercurves[cname].shiftpoints[l2] - l2 * m2;
   // Serial.print("yint: ");
   // Serial.println(b);
 
@@ -1049,8 +1101,8 @@ double CalcCurveValue(CurveName cname, double load)
   // Serial.println((m * l2) + bettercurves[cname].shiftpoints[l2]);
 
   return (m * l2) + bettercurves[cname].shiftpoints[l2];
-  //Serial.println(m2);
-  //return (((m * load) + defaultcurves[cname].y0));
+  // Serial.println(m2);
+  // return (((m * load) + defaultcurves[cname].y0));
 }
 
 double getDoubleAverage(double arr[], int size)
