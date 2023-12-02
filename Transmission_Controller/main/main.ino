@@ -106,13 +106,12 @@ struct Curve2
 };
 
 Curve2 bettercurves[6] = {
-{FirstUP,     {5, 5, 6, 6, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
-{SecondDown,     {4, 4, 4, 4, 4, 4, 4, 17, 23, 30, 30}, 0, 1},
-{SecondUp,     {10, 10, 16, 29, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
-{ThirdDown,     {8, 8, 12, 18, 21, 27, 30, 36, 42, 50, 50}, 0, 1},
-{ThirdUp,     {30, 31, 33, 48, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
-{FourthDown,     {24, 25, 28, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}
-};
+    {FirstUP, {5, 5, 6, 6, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
+    {SecondDown, {4, 4, 4, 4, 4, 4, 4, 17, 23, 30, 30}, 0, 1},
+    {SecondUp, {10, 10, 16, 29, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
+    {ThirdDown, {8, 8, 12, 18, 21, 27, 30, 36, 42, 50, 50}, 0, 1},
+    {ThirdUp, {30, 31, 33, 48, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
+    {FourthDown, {24, 25, 28, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}};
 class Timer
 {
 private:
@@ -256,7 +255,7 @@ const double GearRatio = 4.56;
 const double TireSize = 33;
 
 const int ISS_Smoothing = 5;
-const int OSS_Smoothing = 20;
+const int OSS_Smoothing = 5;
 
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
@@ -354,14 +353,21 @@ void loop()
 
   cmd = Serial.read();
   MeasurePressures();
+
   MeasureSpeed();
-  if (OSS_Avg_Speed > 10)
+
+  if (OSS_Avg_Speed > 30)
   {
     MeasureISS();
+    trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
+  }
+  else
+  {
+    trans_Slippage = 0;
   }
 
-  trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
   RegulateEPC();
+
   CheckShift();
 
   if (cmd == 109) // m --toggle mode
@@ -571,6 +577,7 @@ void loop()
   // TODO break this out into a function. inside getcanpacket it does global var stuff
   BroadcastPacket lol = GetCanPacket();
 
+  PrintInfo();
 }
 
 BroadcastPacket GetCanPacket()
@@ -582,7 +589,7 @@ BroadcastPacket GetCanPacket()
     {
       bptemp.dataid = canMsg.can_id;
       Load_Avg = canMsg.data[1] | canMsg.data[0] << 8;
-      Load_Avg = Load_Avg/10;
+      Load_Avg = Load_Avg / 10;
     }
     // Serial.println(canMsg.can_id);
     else if (canMsg.can_id == 1601)
@@ -633,7 +640,8 @@ BroadcastPacket GetCanPacket()
       canMsg1.data[1] = enabletcc;
       mcp2515.sendMessage(&canMsg1);
     }
-    else if(canMsg.can_id == 1520){      
+    else if (canMsg.can_id == 1520)
+    {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
     }
   }
@@ -642,20 +650,19 @@ BroadcastPacket GetCanPacket()
 
 void MeasureSpeed()
 {
-  OSS_Current_Mircros = micros();
-  int reading = digitalRead(OSS_Pin);
-
-  unsigned long timebetween;
-  double hz;
-
   unsigned long duration = pulseIn(OSS_Pin, HIGH);
-  float frequency = 1000000.0 / (1.0 * duration);
+  double s;
+  if (duration > 0)
+  {
+    float frequency = 1000000.0 / (1.0 * duration);
+    s = 6.283185307 * (TireSize / 4.00) * (((frequency / OSS_Holes) * GearRatio) / 60) * .1;
+  }
+  else
+  {
+    s = 0;
+  }
 
-  // hz = (0.5 / timebetween) * 1000000;
-
-  double s = 6.283185307 * (TireSize / 4.00) * (((frequency / OSS_Holes) * GearRatio) / 60) * .1;
-
-  if (s < 140 and s > 0)
+  if (s < 140 and s > -1)
     OSS_Speeds[OSS_Speed_Count] = s;
   else
     OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
@@ -677,18 +684,17 @@ void MeasureSpeed()
 
 void MeasureISS()
 {
-  ISS_Current_Mircros = micros();
-  int reading = digitalRead(ISS_Pin);
-
-  unsigned long timebetween;
-  double hz;
-
   unsigned long duration = pulseIn(ISS_Pin, HIGH);
+  double s;
   float frequency = 1000000.0 / (1.0 * duration);
-
-  // hz = (0.5 / timebetween) * 1000000;
-
-  double s = 6.283185307 * (TireSize / 4.00) * (((frequency / ISS_Holes) * GearRatio) / 60) * .1;
+  if (duration > 0)
+  {
+    s = 6.283185307 * (TireSize / 4.00) * (((frequency / ISS_Holes) * GearRatio) / 60) * .1;
+  }
+  else
+  {
+    s = 0;
+  }
 
   if (s < 140 and s > 0)
     ISS_Speeds[ISS_Speed_Count] = s;
@@ -712,6 +718,7 @@ void MeasureISS()
 
 void RegulateEPC()
 {
+  int PreviousEPCPWM = EPCPWM;
   if (enableEPC)
   {
     if (Load_Avg < 0)
@@ -757,8 +764,12 @@ void RegulateEPC()
     }
 
     // Serial.println(EPCSetpoint);
-    analogWrite(EPC_PIN, EPCPWM);
-    PrintInfo();
+    if (PreviousEPCPWM != EPCPWM)
+    {
+      analogWrite(EPC_PIN, EPCPWM);
+    }
+
+    // PrintInfo();
   }
 }
 
@@ -1016,7 +1027,7 @@ int CalculateGear()
   if (CurrentGear == 1)
   {
 
-    if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg)))
+    if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg)) || (OSS_Avg_Speed < 5 && (rpmValue > 1000 || rpmValue == 0)))
     {
       ShiftingTimer.start(500, defaultcurves[FirstUP]);
       return 2;
@@ -1033,7 +1044,7 @@ int CalculateGear()
       ShiftingTimer.start(500, defaultcurves[SecondUp]);
       return 3;
     }
-    else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg)))
+    else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg)) && rpmValue != 0 && OSS_Avg_Speed > 5)
     {
       ShiftingTimer.start(500, defaultcurves[SecondDown]);
       return 1;
