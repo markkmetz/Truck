@@ -90,12 +90,12 @@ Curve olddefaultcurves[6] = {
     {FourthDown, 13.4, 119.4}};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 5, 35, 0, 50, 110},
-    {SecondDown, 4, 30, 0, 50, 100},
-    {SecondUp, 30, 70, 0, 50, 100},
-    {ThirdDown, 20, 50, 0, 50, 100},
-    {ThirdUp, 50, 100, 0, 50, 100},
-    {FourthDown, 35, 80, 0, 50, 100}};
+    {FirstUP, 5, 35, 0, 20, 70},
+    {SecondDown, 4, 30, 0, 20, 70},
+    {SecondUp, 30, 70, 0, 20, 70},
+    {ThirdDown, 20, 50, 0, 20, 70},
+    {ThirdUp, 50, 100, 0, 20, 70},
+    {FourthDown, 35, 80, 0, 20, 70}};
 
 struct Curve2
 {
@@ -106,14 +106,15 @@ struct Curve2
 };
 
 Curve2 bettercurves[6] = {
-    {FirstUP, {5, 5, 6, 6, 11, 18, 22, 27, 33, 40, 40}, 0, 1},
-    {SecondDown, {4, 4, 4, 4, 4, 4, 4, 17, 23, 30, 30}, 0, 1},
-    {SecondUp, {10, 10, 16, 29, 32, 38, 43, 50, 59, 70, 70}, 0, 1},
-    {ThirdDown, {8, 8, 12, 18, 21, 27, 30, 36, 42, 50, 50}, 0, 1},
-    {ThirdUp, {30, 31, 33, 48, 55, 65, 75, 85, 93, 100, 100}, 0, 1},
-    {FourthDown, {24, 25, 28, 38, 40, 50, 55, 63, 71, 80, 80}, 0, 1}};
-class Timer
-{
+{FirstUP,     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 1},
+{SecondDown,     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 1},
+{SecondUp,     {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 0, 1},
+{ThirdDown,     {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 0, 1},
+{ThirdUp,     {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 0, 1},
+{FourthDown,     {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 0, 1}
+};
+
+class Timer{
 private:
   unsigned long currentTime;
   int timerLength;
@@ -234,7 +235,7 @@ public:
 };
 PID pid(.5, .5, .5);
 
-int EPCSetpoint = 50;
+int EPCSetpoint = 30;
 
 // INPUTS
 const byte ISS_Pin = 8;
@@ -828,7 +829,11 @@ void loop()
     if (millis() - lastwritetime > 100)
     {
       Serial.print("Data::");
-      Serial.print("epcpwm:");
+
+      Serial.print("Time:");
+      Serial.print(millis());
+
+      Serial.print(",epcpwm:");
       Serial.print(EPCPWM);
       Serial.print(",epcpressuresetpoint:");
       Serial.print(EPCSetpoint);
@@ -1064,7 +1069,7 @@ void loop()
     if (CurrentGear == 1)
     {
 
-      if (OSS_Avg_Speed > (CalcCurveValue(FirstUP, Load_Avg)) || (OSS_Avg_Speed < 5 && (rpmValue > 1700 || rpmValue == 0)))
+      if (rpmValue > 1700 || rpmValue == 0 || OSS_Avg_Speed > 5)
       {
         ShiftingTimer.start(500, defaultcurves[FirstUP]);
         return 2;
@@ -1081,7 +1086,7 @@ void loop()
         ShiftingTimer.start(500, defaultcurves[SecondUp]);
         return 3;
       }
-      else if (OSS_Avg_Speed < (CalcCurveValue(SecondDown, Load_Avg)) && rpmValue != 0)
+      else if (rpmValue != 0 && rpmValue < 1400 && OSS_Avg_Speed < 2)
       {
         ShiftingTimer.start(500, defaultcurves[SecondDown]);
         return 1;
@@ -1129,28 +1134,13 @@ void loop()
   // Calulate the y value (speed) from the shift curves.
   double CalcCurveValue(CurveName cname, double load)
   {
-    double m = (defaultcurves[cname].y100 - defaultcurves[cname].y0) / 100;
 
     int l2 = load / 10;
-    // Serial.println("");
-    // Serial.println(cname);
-    // Serial.print("L2: ");
-    // Serial.println(l2);
-
     double m2 = (bettercurves[cname].shiftpoints[l2 + 1] - bettercurves[cname].shiftpoints[l2]);
-    // Serial.println(m2);
-
-    // y = mx + b
     int b = bettercurves[cname].shiftpoints[l2] - l2 * m2;
-    // Serial.print("yint: ");
-    // Serial.println(b);
 
-    // Serial.print("curve val: ");
-    // Serial.println((m * l2) + bettercurves[cname].shiftpoints[l2]);
+    return (m2 * l2) + bettercurves[cname].shiftpoints[l2];
 
-    return (m * l2) + bettercurves[cname].shiftpoints[l2];
-    // Serial.println(m2);
-    // return (((m * load) + defaultcurves[cname].y0));
   }
 
   double getDoubleAverage(double arr[], int size)
