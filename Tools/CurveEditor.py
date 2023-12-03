@@ -75,7 +75,6 @@ def printnewstuff():
     print()
     return arr
 
-
 def up(event):
     global index
     index += 1

@@ -55,7 +55,7 @@ df = pd.read_csv('Tools\\v12.02.23_successfultestdrive_2023-12-02_20-52-22.csv')
 df['avgspeed'] = df['Speed'].rolling(window=5).mean()
 gear = []        
 for index, row in df.iterrows():
-    current_gear = CalculateGear(row['avgspeed'],row['load'],row['rpm'])
+    current_gear = CalculateGear(row['Speed'],row['load'],row['rpm'])
     gear.append(current_gear*10)
     
 
@@ -65,7 +65,7 @@ df['Gear'] = gear
 # # Plot all four columns
 plt.figure(figsize=(10, 6))
 plt.plot(df['Gear'], label='Gear')
-plt.plot(df['avgspeed'], label='avgspeed')
+plt.plot(df['Speed'], label='Speed')
 plt.plot(df['load'], label='load')
 
 

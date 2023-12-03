@@ -255,8 +255,8 @@ const int ISS_Holes = 12;
 const double GearRatio = 4.56;
 const double TireSize = 33;
 
-const int ISS_Smoothing = 5;
-const int OSS_Smoothing = 5;
+const int ISS_Smoothing = 10;
+const int OSS_Smoothing = 10;
 
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
@@ -272,8 +272,6 @@ double OSS_Speeds[OSS_Smoothing];
 double ISS_Speeds[OSS_Smoothing];
 double OSS_Avg_Speed;
 double ISS_Avg_Speed;
-bool OSS_Speed_Change = false;
-bool ISS_Speed_Change = false;
 int OSS_Speed_Count = 0;
 int ISS_Speed_Count = 0;
 int OSS_Measure_Count = 0;
@@ -355,17 +353,17 @@ void loop()
   cmd = Serial.read();
   MeasurePressures();
 
-  // MeasureSpeed();
+  MeasureSpeed();
 
-  if (OSS_Avg_Speed > 30)
-  {
-    MeasureISS();
-    trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
-  }
-  else
-  {
-    trans_Slippage = 0;
-  }
+  // if (OSS_Avg_Speed > 30)
+  // {
+  //   MeasureISS();
+  //   trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
+  // }
+  // else
+  // {
+  //   trans_Slippage = 0;
+  // }
 
   RegulateEPC();
 
@@ -487,8 +485,6 @@ void loop()
       OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
       Serial.print("Speed is set to: ");
       Serial.println(OSS_Avg_Speed);
-
-      OSS_Speed_Change = true;
       break;
     }
     case 79: // O --decrement OSS data
@@ -506,7 +502,6 @@ void loop()
       Serial.print("Speed is set to: ");
       Serial.println(OSS_Avg_Speed);
 
-      OSS_Speed_Change = true;
       break;
     }
     case 65: // A --toggle shifting based on checkshift()
@@ -568,11 +563,6 @@ void loop()
       Serial.println("");
     }
     cmd = -1;
-  }
-  else
-  {
-    // TODO probably need to add this back in to main loop
-    MeasureSpeed();
   }
 
   // TODO break this out into a function. inside getcanpacket it does global var stuff
@@ -707,11 +697,8 @@ void loop()
     }
 
     double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
-    if (int(newspeed) != int(OSS_Avg_Speed))
-    {
-      OSS_Speed_Change = true;
-      OSS_Avg_Speed = newspeed;
-    }
+    OSS_Avg_Speed = newspeed;
+    
   }
 
   void MeasureISS()
@@ -741,11 +728,7 @@ void loop()
     }
 
     double newspeed = getDoubleAverage(ISS_Speeds, ISS_Smoothing);
-    if (int(newspeed) != int(ISS_Avg_Speed))
-    {
-      ISS_Speed_Change = true;
       ISS_Avg_Speed = newspeed;
-    }
   }
 
   void RegulateEPC()
@@ -1153,18 +1136,10 @@ void loop()
     {
       sum += arr[i];
     }
+    
     avg = sum / size;
 
-    if (avg > 140)
-    {
-      Serial.println("error at getdoubleaverage()");
-      DumpInfo();
-      return OSS_Avg_Speed;
-    }
-    else
-    {
-      return avg;
-    }
+    return avg;
   }
 
   double getAverage(int arr[], int size)
