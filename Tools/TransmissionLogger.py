@@ -41,7 +41,7 @@ with open(filename, 'a', newline='\n') as csvfile:
         
         if len(line)>10:
             line = line.decode('latin-1').strip()
-            print(line[0:6])
+            print(line)
             if line[0:6] == "Data::":
                 line = line[6:]
                 pairs = line.split(',')
