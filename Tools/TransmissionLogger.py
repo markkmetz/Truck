@@ -15,12 +15,13 @@ filename = f'arduino_data_{formatted_date}.csv'
 
 
 # Open the serial port.
-ser = serial.Serial('COM9', 9600)
+ser = serial.Serial('/dev/cu.usbmodem1201', 9600)
 
 ser.reset_input_buffer()
 
 # Initialize an empty dictionary to hold the data.
 data = {}
+wroteheader = False
 
 # Initialize a figure for plotting.
 plt.figure()
@@ -33,34 +34,49 @@ with open(filename, 'a', newline='\n') as csvfile:
     # This loop runs forever, continuously reading data and updating the plot.
     while True:
         # Read a line of data from the Arduino.
-        line = ser.readline().decode('utf-8').strip()
+        line = ser.readline()
+        
 
         # Split the line into key-value pairs.
-        pairs = line.split(',')
+        
+        if len(line)>10:
+            line = line.decode('latin-1').strip()
+            print(line)
+            if line[0:6] == "Data::":
+                line = line[6:]
+                pairs = line.split(',')
 
-        # Process each key-value pair.
-        row = []
-        for pair in pairs:
-            if line[0] != "," and pair.count(":") ==1 :
-                key, value = pair.split(':')
+                row = []
+                for pair in pairs:
+                    if line[0] != "," and pair.count(":") ==1 :
+                        key, value = pair.split(':')
 
-                # Add the value to the list of values for this key.
-                if key not in data:
-                    data[key] = []
-                data[key].append(float(value))
+                        # Add the value to the list of values for this key.
+                        if key not in data:
+                            data[key] = []
+                        data[key].append(float(value))
 
-                # Add the value to the row.
-                row.append(value)
+                
+                        # Add the value to the row.
+                        row.append(value)
 
         # Write the row to the CSV file.
-        writer.writerow(row)
+                if wroteheader == False:
+                    str = ""
+                    for key in data:
+                        str += key + ","
+                    str = str[:-1]
+                    writer.writerow(data)
+                    wroteheader = True
+                writer.writerow(row)
+                csvfile.flush()
 
         # Clear the figure.
-        plt.clf()
+                plt.clf()
 
         # Plot the data.
-        for key, values in data.items():
-            plt.plot(values, label=key)
+                for key, values in data.items():
+                    plt.plot(values, label=key)
 
         # Add a legend.
         plt.legend()
