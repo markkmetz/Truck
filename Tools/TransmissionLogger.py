@@ -47,6 +47,11 @@ with open(filename, 'a', newline='\n') as csvfile:
                 pairs = line.split(',')
 
                 row = []
+                formatted_time = now.strftime('%H-%M-%S')
+                milliseconds = now.strftime('%f')[:3]
+                final_time =  f"{formatted_time}_{milliseconds}"
+                row.append(final_time)
+                
                 for pair in pairs:
                     if line[0] != "," and pair.count(":") ==1 :
                         key, value = pair.split(':')
