@@ -15,7 +15,7 @@ filename = f'arduino_data_{formatted_date}.csv'
 
 
 # Open the serial port.
-ser = serial.Serial('/dev/cu.usbmodem1201', 9600)
+ser = serial.Serial('/dev/cu.usbmodem1301', 9600)
 
 ser.reset_input_buffer()
 
@@ -38,7 +38,6 @@ with open(filename, 'a', newline='\n') as csvfile:
         
 
         # Split the line into key-value pairs.
-        
         if len(line)>10:
             line = line.decode('latin-1').strip()
             print(line)
@@ -47,7 +46,8 @@ with open(filename, 'a', newline='\n') as csvfile:
                 pairs = line.split(',')
 
                 row = []
-                formatted_time = now.strftime('%H-%M-%S')
+                now = datetime.now()
+                formatted_time = now.strftime('%S')
                 milliseconds = now.strftime('%f')[:3]
                 final_time =  f"{formatted_time}_{milliseconds}"
                 row.append(final_time)
@@ -67,7 +67,7 @@ with open(filename, 'a', newline='\n') as csvfile:
 
         # Write the row to the CSV file.
                 if wroteheader == False:
-                    str = ""
+                    str = "Py_Time,"
                     for key in data:
                         str += key + ","
                     str = str[:-1]
@@ -81,7 +81,8 @@ with open(filename, 'a', newline='\n') as csvfile:
 
         # Plot the data.
                 for key, values in data.items():
-                    plt.plot(values, label=key)
+                    if key != 'Time':
+                        plt.plot(values, label=key)
 
         # Add a legend.
         plt.legend()

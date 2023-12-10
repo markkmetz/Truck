@@ -90,12 +90,12 @@ Curve olddefaultcurves[6] = {
     {FourthDown, 13.4, 119.4}};
 
 Curve defaultcurves[6] = {
-    {FirstUP, 5, 35, 0, 20, 70},
-    {SecondDown, 4, 30, 0, 20, 70},
-    {SecondUp, 30, 70, 0, 20, 70},
-    {ThirdDown, 20, 50, 0, 20, 70},
-    {ThirdUp, 50, 100, 0, 20, 70},
-    {FourthDown, 35, 80, 0, 20, 70}};
+    {FirstUP, 5, 35, 0, 20, 110},
+    {SecondDown, 4, 30, 0, 20, 110},
+    {SecondUp, 30, 70, 0, 20, 110},
+    {ThirdDown, 20, 50, 0, 20, 110},
+    {ThirdUp, 50, 100, 0, 20, 110},
+    {FourthDown, 35, 80, 0, 20, 110}};
 
 struct Curve2
 {
@@ -577,7 +577,7 @@ void loop()
     else if (canMsg.can_id == 1520)
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
-      Serial.println(rpmValue);
+      //Serial.println(rpmValue);
     }
   }
     PrintInfo();
