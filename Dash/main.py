@@ -1,27 +1,57 @@
 #scp C:\Users\markl\OneDrive\Documents\GitHub\Truck\Dash\main.py mark@192.168.1.253:/home/mark
 # sudo apt install python3-ttkbootstrap
 
+from cgitb import text
+from turtle import bgcolor, width
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from tkinter import Frame, X, StringVar
 import time
+from PIL import Image,ImageTk
 import sys
 
 app = ttk.Window()
+#app.minsize(1920,515)
 
 style = ttk.Style(theme='darkly')
 
 #app.attributes('-fullscreen', True)
-frame = Frame(app)
+frame = ttk.Frame(app, width=1920, height=515)
+#frame.pack_propagate(0)  # Don't shrink or expand the frame
 frame.pack()
 
-dict_kvp = {'Temperature': 40, 'Pressure': 0, 'Speed': 0, 'RPM': 0, 'Gear': 0, 'Gas':0}
+def toggle_led():
+    if led_indicator['style'] == 'Green.TLabel':
+        led_indicator['style'] = 'Red.TLabel'
+    else:
+        led_indicator['style'] = 'Green.TLabel'
+
 
 meters = {}
-
+#-----------------------------------------------------
+#    TEMPERATURE
 meter = ttk.Meter(
     frame,
-    metersize=180,
+    metersize=250,
+    padding=5,
+    amountused=200,
+    metertype="semi",
+    arcrange=120,
+    arcoffset=270,
+    amounttotal=260,
+    subtext='Temp',
+    interactive=False,
+    textright='F',
+    meterthickness=30
+)
+meter.place(x=110,y=0)
+meters['Temp'] = meter
+
+#-----------------------------------------------------
+#    FUEL
+meter = ttk.Meter(
+    frame,
+    metersize=250,
     padding=5,
     amountused=40,
     metertype="semi",
@@ -30,108 +60,139 @@ meter = ttk.Meter(
     amounttotal=100,
     subtext='Fuel',
     interactive=False,
-    textright='%'
+    textright='%',
+    meterthickness=30
 )
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='Fuel')
+meter.place(x=-80,y=0)
 meters['Fuel'] = meter
+
+
 #-----------------------------------------------------
+#   VOLTAGE
 meter = ttk.Meter(
     frame,
-    metersize=180,
+    metersize=250,
     padding=5,
-    amountused=40,
+    amountused=12,
     metertype="semi",
     arcrange=120,
     arcoffset=270,
-    amounttotal=100,
-    subtext='Temp',
+    amounttotal=18,
+    subtext='Volt',
     interactive=False,
-    textright='F'
+    textright='V',
+    meterthickness=30
 )
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='Temp')
-meters['Temp'] = meter
+meter.place(x=-80,y=210)
+meters['Volt'] = meter
+
+
 #-----------------------------------------------------
+#   SPEEDOMETER MPH
 meter = ttk.Meter(
     frame,
-    metersize=180,
+    metersize=600,
     padding=5,
     amountused=40,
     metertype="semi",
     arcrange=180,
     arcoffset=180,
     amounttotal=100,
-    subtext='MPH',
-    interactive=False
+    textright='MPH',
+    interactive=False,
+    meterthickness=30
 )
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='MPH')
+meter.place(x=390,y=140)
 meters['MPH'] = meter
+
+
 #-----------------------------------------------------
+#   TACH    RPM
 meter = ttk.Meter(
     frame,
-    metersize=180,
+    metersize=600,
     padding=5,
     amountused=2200,
     metertype="semi",
     arcrange=180,
     arcoffset=180,
     amounttotal=6000,
-    subtext='RPM',
-    interactive=False
+    textright='RPM',
+    interactive=False,
+    meterthickness=30
 )
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='RPM')
+meter.place(x=1000,y=140)
 meters['RPM'] = meter
-#-----------------------------------------------------
-meter = ttk.Meter(
-    frame,
-    metersize=180,
-    padding=5,
-    amountused=40,
-    metertype="semi",
-    arcrange=120,
-    arcoffset=150,
-    amounttotal=100,
-    subtext='EPC Pressure',
-    interactive=False,
-    textright='Psi'
-)
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='EPC')
-meters['EPC'] = meter
-#-----------------------------------------------------
-meter = ttk.Meter(
-    frame,
-    metersize=180,
-    padding=5,
-    amountused=40,
-    metertype="semi",
-    arcrange=120,
-    arcoffset=150,
-    amounttotal=100,
-    subtext='OI Pressure',
-    interactive=False,
-    textright='Psi'
-)
-meter.pack(side='left')
-meter.step(10)
-meter.step(-15)
-meter.configure(subtext='Oil')
-meters['Oil'] = meter
-#-----------------------------------------------------
 
+#-----------------------------------------------------
+#       OIL PRESSURE
+meter = ttk.Meter(
+    frame,
+    metersize=250,
+    padding=5,
+    amountused=65,
+    metertype="semi",
+    arcrange=120,
+    arcoffset=150,
+    amounttotal=100,
+    subtext='Oil',
+    interactive=False,
+    textright='Psi',
+    meterthickness=30
+)
+meter.place(x=1560,y=0)
+meters['Oil'] = meter
+
+#-----------------------------------------------------
+#   EPC PRESSURE
+meter = ttk.Meter(
+    frame,
+    metersize=250,
+    padding=5,
+    amountused=120,
+    metertype="semi",
+    arcrange=120,
+    arcoffset=150,
+    amounttotal=250,
+    subtext='EPC',
+    interactive=False,
+    textright='Psi',
+    meterthickness=30
+)
+meter.place(x=1750,y=0)
+meters['EPC'] = meter
+
+
+#-----------------------------------------------------
+#   GEAR indicator
+meter = ttk.Meter(
+    frame,
+    metersize=250,
+    padding=5,
+    amountused=1,
+    metertype="semi",
+    arcrange=120,
+    arcoffset=150,
+    amounttotal=4,
+    subtext='Gear',
+    interactive=False,
+    meterthickness=30
+)
+meter.place(x=1750,y=210)
+meters['Gear'] = meter
+
+#-----------------------------------------------------
+#   TCC indicator
+
+style.configure('Green.TLabel', background='green', foreground='green', borderwidth=1, relief="solid",width=3)
+style.configure('Red.TLabel', background='red', foreground='red', borderwidth=1, relief="solid")
+
+led_indicator = ttk.Label(app, style='Red.TLabel',text="sdf",width=3)
+led_indicator.place(x=1840,y=300)
+toggle_led()
+
+
+#-----------------------------------------------------
 
 def update_meters(new_dict):
     for key, value in new_dict.items():
@@ -142,12 +203,8 @@ def update_meters(new_dict):
 def stop_script():
     sys.exit()
 
-#update_meters(dict_kvp)
+text_box = ttk.Text(frame, height=2)
+text_box.place(x=0,y=460,relwidth=1)
 
-stop_button = ttk.Button(app, text="Stop", command=stop_script)
-stop_button.pack()
-
-text_box = ttk.Text(app, height=4)
-text_box.pack(fill=X)
-
+#-----------------------------------------------------
 app.mainloop()
