@@ -36,8 +36,10 @@ values = {
 'tpsValue' : 0,
 'tempValue' : 0,
 'speedValue' : 0,
+'epcPWMValue':0,
 'gearValue' : 0,
-'tccValue' : 0
+'tccValue' : 0,
+
 }
 
 
@@ -52,6 +54,10 @@ def receive_can_messages(channel):
                 values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
             elif canMsg.arbitration_id == "5f3":
                 values['tps'] = canMsg.data[1] | (canMsg.data[0] << 8)
+            elif canMsg.arbitration_id == "6A4":
+                values['epcPWMValue'] = canMsg.data[0]
+                values['gearValue'] = canMsg.data[3]
+                values['tccValue'] = canMsg.data[2]
             
         else:
             print("Timeout")
@@ -65,6 +71,11 @@ def update():
         receive_can_messages('can0')
 
     meters['RPM'].configure(amountused=values['rpmValue'])
+    meters['Gear'].configure(amountused=values['gearValue'])
+    meters['EPC'].configure(amountused=values['epcPWMValue'])
+    meters['MPH'].configure(amountused=values['speedValue'])
+
+
     #this is a progress bar not a meter. so this might vary
     #meters['loadValue'].configure(amountused=values['tpsValue'])
     
