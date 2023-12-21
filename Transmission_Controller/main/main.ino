@@ -70,12 +70,12 @@ struct Curve
 };
 
 Curve bettercurves[6] = {
-{FirstUP,     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-{SecondDown,     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-{SecondUp,     {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
-{ThirdDown,     {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
-{ThirdUp,     {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
-{FourthDown,     {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 40, 1}};
+    {FirstUP, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {SecondDown, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {SecondUp, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
+    {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
+    {ThirdUp, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
+    {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 40, 1}};
 
 class Timer
 {
@@ -197,12 +197,12 @@ public:
     return output;
   }
 
-  int clear(){
+  int clear()
+  {
     integral = 0;
     pre_error = 0;
     lastOutput = 0;
   }
-
 };
 PID inGearPID(.5, .5, .5);
 PID shiftingPID(1, 1, 1);
@@ -777,44 +777,68 @@ void PrintInfo()
 {
   if (millis() - lastwritetime > 100)
   {
-    Serial.print("Data::");
+    // Serial.print("Data::");
 
-    Serial.print("Time:");
-    Serial.print(millis());
+    // Serial.print("Time:");
+    // Serial.print(millis());
 
-    Serial.print(",epcpwm:");
-    Serial.print(EPCPWM);
-    Serial.print(",epcpressuresetpoint:");
-    Serial.print(EPCSetpoint);
+    // Serial.print(",epcpwm:");
+    // Serial.print(EPCPWM);
+    // Serial.print(",epcpressuresetpoint:");
+    // Serial.print(EPCSetpoint);
 
-    Serial.print(",load:");
-    Serial.print(Load_Avg);
+    // Serial.print(",load:");
+    // Serial.print(Load_Avg);
 
-    Serial.print(",Line:");
-    Serial.print(LinePressure);
+    // Serial.print(",Line:");
+    // Serial.print(LinePressure);
 
-    Serial.print(",EPC_Press:");
-    Serial.print(EPCPressure);
+    // Serial.print(",EPC_Press:");
+    // Serial.print(EPCPressure);
 
-    Serial.print(",ISS_Speed:");
-    Serial.print(ISS_Avg_Speed);
+    // Serial.print(",ISS_Speed:");
+    // Serial.print(ISS_Avg_Speed);
 
-    Serial.print(",Slippage:");
-    Serial.print(trans_Slippage);
+    // Serial.print(",Slippage:");
+    // Serial.print(trans_Slippage);
 
-    Serial.print(",tcc:");
-    Serial.print(enabletcc);
+    // Serial.print(",tcc:");
+    // Serial.print(enabletcc);
 
-    Serial.print(",rpm:");
-    Serial.print(rpmValue);
+    // Serial.print(",rpm:");
+    // Serial.print(rpmValue);
 
-    Serial.print(",CurrentGear:");
-    Serial.print(CurrentGear);
+    // Serial.print(",CurrentGear:");
+    // Serial.print(CurrentGear);
 
-    Serial.print(",CurrentSpeed:");
-    Serial.println(OSS_Avg_Speed);
+    // Serial.print(",CurrentSpeed:");
+    // Serial.println(OSS_Avg_Speed);
+    // 
+
+    struct can_frame canMsg1;
+    byte byte1, byte2;
+
+    canMsg1.can_id = 0x6A4; //setting a lower priority here so that we still can receive data
+    canMsg1.data[0] = constrain(EPCPWM, 0, 255);
+    canMsg1.data[1] = constrain(EPCSetpoint, 0, 255);
+    canMsg1.data[2] = constrain(enabletcc, 0, 1);
+    canMsg1.data[3] = constrain(CurrentGear, 0, 12);
+    canMsg1.data[4] = constrain(ISS_Avg_Speed, 0, 255);
+    canMsg1.data[5] = constrain(OSS_Avg_Speed, 0, 255);
+    splitIntoTwoBytes(LinePressure, canMsg1.data[6], canMsg1.data[7]);
+    splitIntoTwoBytes(EPCPressure, canMsg1.data[8], canMsg1.data[9]);
+    canMsg1.can_dlc = 10;
+    mcp2515.sendMessage(&canMsg1);
+
     lastwritetime = millis();
   }
+}
+
+void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
+{
+  byte1 = (value >> 8) & 0xFF;
+  byte2 = value & 0xFF;
+  return;
 }
 
 void DumpInfo()
@@ -896,7 +920,7 @@ void Shift()
   //  3 0/1
   //  4 1/1
 
-  //clear the pid error and output
+  // clear the pid error and output
   inGearPID.clear();
   shiftingPID.clear();
 
