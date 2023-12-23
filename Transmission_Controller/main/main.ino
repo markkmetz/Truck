@@ -813,22 +813,21 @@ void PrintInfo()
 
     // Serial.print(",CurrentSpeed:");
     // Serial.println(OSS_Avg_Speed);
-    // 
 
-    struct can_frame canMsg1;
+    struct can_frame canMsg2;
     byte byte1, byte2;
 
-    canMsg1.can_id = 0x6A4; //setting a lower priority here so that we still can receive data
-    canMsg1.data[0] = constrain(EPCPWM, 0, 255);
-    canMsg1.data[1] = constrain(EPCSetpoint, 0, 255);
-    canMsg1.data[2] = constrain(enabletcc, 0, 1);
-    canMsg1.data[3] = constrain(CurrentGear, 0, 12);
-    canMsg1.data[4] = constrain(ISS_Avg_Speed, 0, 255);
-    canMsg1.data[5] = constrain(OSS_Avg_Speed, 0, 255);
-    splitIntoTwoBytes(LinePressure, canMsg1.data[6], canMsg1.data[7]);
-    splitIntoTwoBytes(EPCPressure, canMsg1.data[8], canMsg1.data[9]);
-    canMsg1.can_dlc = 10;
-    mcp2515.sendMessage(&canMsg1);
+    canMsg2.can_id = 1702; //setting a lower priority here so that we still can receive data
+    canMsg2.data[0] = constrain(EPCPWM, 0, 255);
+    canMsg2.data[1] = constrain(EPCSetpoint, 0, 255);
+    canMsg2.data[2] = constrain(enabletcc, 0, 1);
+    canMsg2.data[3] = constrain(CurrentGear, 0, 12);
+    canMsg2.data[4] = constrain(ISS_Avg_Speed, 0, 255);
+    canMsg2.data[5] = constrain(OSS_Avg_Speed, 0, 255);
+    splitIntoTwoBytes(LinePressure, canMsg2.data[6], canMsg2.data[7]);
+    splitIntoTwoBytes(EPCPressure, canMsg2.data[8], canMsg2.data[9]);
+    canMsg2.can_dlc = 10;
+    mcp2515.sendMessage(&canMsg2);
 
     lastwritetime = millis();
   }
