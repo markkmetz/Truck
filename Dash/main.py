@@ -36,12 +36,14 @@ values = {
 'tpsValue' : 0,
 'tempValue' : 0,
 'speedValue' : 0,
+'epcPsiValue' : 0,
 'epcPWMValue':0,
 'gearValue' : 0,
-'tccValue' : 0,
-
+'tccValue' : 0
 }
 
+meters = {}
+labels = {}
 
 def receive_can_messages(channel):
     global timeout_counter
@@ -76,15 +78,11 @@ def update():
     meters['MPH'].configure(amountused=values['speedValue'])
 
 
-    #this is a progress bar not a meter. so this might vary
-    #meters['loadValue'].configure(amountused=values['tpsValue'])
-    
-    app.after(100, update)  # 100 milliseconds = 0.1 seconds
+    #100ms = 10fps.. so maybe we can increase this later
+    app.after(100, update)  
 
 
 #region meters
-
-meters = {}
 #-----------------------------------------------------
 #    TEMPERATURE
 meter = ttk.Meter(
@@ -222,15 +220,17 @@ meters['EPC'] = meter
 
 label = ttk.Label(frame, text="120", font=large_font,foreground="#375a7f")
 label.place(x=1810, y=90)
+labels['epcPsi'] = label
+
 label = ttk.Label(frame, text="Psi")
 label.place(x=1860, y=105)
-
 label = ttk.Label(frame, text="EPC", font=med_font)
 label.place(x=1830, y=140)
 
 progressbar = ttk.Progressbar(frame, value=75, orient='vertical',length=170)
 progressbar.place(x=1890,y=8,width=20)
-
+meters['epcPWM'] = progressbar
+    
 label = ttk.Label(frame, text="PWM", font=small_font)
 label.place(x=1885, y=180)
 
@@ -256,13 +256,15 @@ meters['Gear'] = meter
 
 label = ttk.Label(frame, text="1", font=xl_font,foreground="#375a7f")
 label.place(x=1840, y=210 + 90)
-# label = ttk.Label(frame, text="")
-# label.place(x=1860, y=210+ 105)
+labels['Gear'] = label
+
 label = ttk.Label(frame, text="Gear", font=med_font)
 label.place(x=1830, y=210 + 140)
 
 progressbar = ttk.Progressbar(frame, value=75, orient='vertical',length=170)
 progressbar.place(x=1890,y=210 + 8,width=20)
+meters['Load'] = progressbar
+
 label = ttk.Label(frame, text="Load", font=small_font)
 label.place(x=1885, y=210+ 180)
 
@@ -272,9 +274,11 @@ label.place(x=1885, y=210+ 180)
 
 tcc = ttk.Radiobutton(style="info",text="TCC")
 tcc.place(x=1830,y=265)
+meters['TCC'] = tcc
 
 checkengine = ttk.Radiobutton(style="warning",text="Check Engine")
 checkengine.place(x=500,y=10)
+meters['Check'] = checkengine
 
 
 #-----------------------------------------------------
