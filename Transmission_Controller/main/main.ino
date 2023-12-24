@@ -3,7 +3,7 @@
 
 const String VERSION = "12.02.23.1";
 // const bool ENABLE_CAN_BUS;
-
+int count = 11;
 #include <SPI.h>
 #include <mcp2515.h>
 
@@ -834,7 +834,14 @@ void PrintInfo()
 
     mcp2515.sendMessage(&canMsg2);
 
-    Serial.println("Sent");
+    canMsg1.can_id = 1605;
+    canMsg1.can_dlc = 2;
+    canMsg1.data[0] = CommandedGear;
+      canMsg1.data[1] = count;
+      count = count+1;
+      mcp2515.sendMessage(&canMsg1);
+
+    Serial.println(count);
 
 
     lastwritetime = millis();

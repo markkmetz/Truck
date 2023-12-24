@@ -16,6 +16,7 @@ from PIL import Image,ImageTk
 import sys
 import platform
 import can
+import threading
 
 
 app = ttk.Window()
@@ -56,31 +57,34 @@ def receive_can_messages():
     #bus = can.interface.Bus(channel=channel, bustype='socketcan')
     
     while True:
-        canMsg = bus.recv(0.01)
-        if canMsg is None:  
-            break
+        canMsg = bus.recv(0)
+        if canMsg is not None:  
+        #     break
 
-        print(canMsg.arbitration_id)
+            print(canMsg.arbitration_id)
 
-        if canMsg.arbitration_id == 1520:
-            values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
-        elif canMsg.arbitration_id == 1523:
-            values['tpsValue'] = canMsg.data[1] | (canMsg.data[0] << 8)
-            
-        elif canMsg.arbitration_id == 1702:
-            values['epcPWMValue'] = canMsg.data[0]
-            values['gearValue'] = canMsg.data[3]
-            values['tccValue'] = canMsg.data[2]
+            if canMsg.arbitration_id == 1520:
+                values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
+            elif canMsg.arbitration_id == 1523:
+                values['tpsValue'] = canMsg.data[1] | (canMsg.data[0] << 8)
+                
+            elif canMsg.arbitration_id == 1702:
+                values['epcPWMValue'] = canMsg.data[0]
+                values['gearValue'] = canMsg.data[3]
+                values['tccValue'] = canMsg.data[2]
 
-        text_box.insert('1.0',str(canMsg.arbitration_id) + " ")
+            elif canMsg.arbitration_id == 1605:
+                values['rpmValue'] = canMsg.data[1]
+
+            print(str(canMsg.arbitration_id) + " " + str(canMsg.data[1]))
 
 
 def update():
 
     global values
     
-    if os_type == "Linux":
-        receive_can_messages()
+    # if os_type == "Linux":
+    #     receive_can_messages()
 
     meters['RPM'].configure(amountused=values['rpmValue'])
     meters['Load'].configure(value=values['tpsValue'])
@@ -91,7 +95,7 @@ def update():
 
 
     #100ms = 10fps.. so maybe we can increase this later
-    app.after(10, update)  
+    app.after(100, update)  
 
 
 #region meters
@@ -306,6 +310,7 @@ odo.insert('0.0',"347,000")
 #-----------------------------------------------------
 
 #endregion
-
+recv_thread = threading.Thread(target=receive_can_messages)
+recv_thread.start()
 update()
 app.mainloop()
