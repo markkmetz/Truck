@@ -2,6 +2,7 @@
 # sudo apt install python3-ttkbootstrap
 #start can:
 #sudo ip link set can0 up type can bitrate 500000
+#/.local/lib/python3.11/site-packages/ttkbootstrap/widgets.py
 
 
 from cgitb import text
