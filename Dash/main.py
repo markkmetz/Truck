@@ -50,52 +50,51 @@ values = {
 meters = {}
 labels = {}
 
-def receive_can_messages():
+def receive_can_messages(values):
     global timeout_counter
-    global values
     global bus
+    count = 0
     #bus = can.interface.Bus(channel=channel, bustype='socketcan')
-    
-    while True:
-        canMsg = bus.recv(0)
-        if canMsg is not None:  
-        #     break
+    if os_type == "Linux":
+        while True:
+            canMsg = bus.recv(0)
+            if canMsg is not None:  
+            #     break
 
-            print(canMsg.arbitration_id)
+                print(canMsg.arbitration_id)
 
-            if canMsg.arbitration_id == 1520:
-                values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
-            elif canMsg.arbitration_id == 1523:
-                values['tpsValue'] = canMsg.data[1] | (canMsg.data[0] << 8)
-                
-            elif canMsg.arbitration_id == 1702:
-                values['epcPWMValue'] = canMsg.data[0]
-                values['gearValue'] = canMsg.data[3]
-                values['tccValue'] = canMsg.data[2]
+                if canMsg.arbitration_id == 1520:
+                    values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
+                elif canMsg.arbitration_id == 1523:
+                    values['tpsValue'] = canMsg.data[1] | (canMsg.data[0] << 8)
+                    
+                elif canMsg.arbitration_id == 1702:
+                    values['epcPWMValue'] = canMsg.data[0]
+                    values['gearValue'] = canMsg.data[3]
+                    values['tccValue'] = canMsg.data[2]
 
-            elif canMsg.arbitration_id == 1605:
-                values['rpmValue'] = canMsg.data[1]
+                elif canMsg.arbitration_id == 1605:
+                    values['rpmValue'] = canMsg.data[1]
 
-            print(str(canMsg.arbitration_id) + " " + str(canMsg.data[1]))
+                print(str(canMsg.arbitration_id) + " " + str(canMsg.data[1]))
+    else:
+        while True:
+            print(count)
+            count = count +1
+            values['rpmValue'] = count
+            time.sleep(.1)
 
 
-def update():
-
-    global values
-    
-    # if os_type == "Linux":
-    #     receive_can_messages()
+def update(meters,values):
 
     meters['RPM'].configure(amountused=values['rpmValue'])
-    meters['Load'].configure(value=values['tpsValue'])
-    meters['Temp'].configure(amountused=values['tempValue'])
-    meters['Gear'].configure(amountused=values['gearValue'])
-    meters['EPC'].configure(amountused=values['epcPWMValue'])
-    meters['MPH'].configure(amountused=values['speedValue'])
+    # meters['Load'].configure(value=values['tpsValue'])
+    # meters['Temp'].configure(amountused=values['tempValue'])
+    # meters['Gear'].configure(amountused=values['gearValue'])
+    # meters['EPC'].configure(amountused=values['epcPWMValue'])
+    # meters['MPH'].configure(amountused=values['speedValue'])
 
-
-    #100ms = 10fps.. so maybe we can increase this later
-    app.after(100, update)  
+    app.after(10,update,meters,values)  
 
 
 #region meters
@@ -310,7 +309,7 @@ odo.insert('0.0',"347,000")
 #-----------------------------------------------------
 
 #endregion
-recv_thread = threading.Thread(target=receive_can_messages)
+recv_thread = threading.Thread(target=receive_can_messages,args=(values,))
 recv_thread.start()
-update()
+update(meters,values)
 app.mainloop()
