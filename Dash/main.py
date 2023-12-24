@@ -29,7 +29,10 @@ large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
 xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
 med_font = ttk.font.Font(size=15)
 small_font = ttk.font.Font(size=8)
-bus = can.interface.Bus(channel='can0', bustype='socketcan')
+bus = None
+if os_type == "Linux":
+    bus = can.interface.Bus(channel='can0', bustype='socketcan')
+enableDisplay = False
 
 values = {
 'rpmValue' : 0,
@@ -39,7 +42,8 @@ values = {
 'epcPsiValue' : 0,
 'epcPWMValue':0,
 'gearValue' : 0,
-'tccValue' : 0
+'tccValue' : 0,
+'tpsValue':0
 }
 
 meters = {}
@@ -52,7 +56,7 @@ def receive_can_messages():
     #bus = can.interface.Bus(channel=channel, bustype='socketcan')
     
     while True:
-        canMsg = bus.recv(0)
+        canMsg = bus.recv(0.01)
         if canMsg is None:  
             break
 
@@ -61,17 +65,14 @@ def receive_can_messages():
         if canMsg.arbitration_id == 1520:
             values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
         elif canMsg.arbitration_id == 1523:
-            values['tps'] = canMsg.data[1] | (canMsg.data[0] << 8)
+            values['tpsValue'] = canMsg.data[1] | (canMsg.data[0] << 8)
             
         elif canMsg.arbitration_id == 1702:
             values['epcPWMValue'] = canMsg.data[0]
             values['gearValue'] = canMsg.data[3]
             values['tccValue'] = canMsg.data[2]
-            
-
 
         text_box.insert('1.0',str(canMsg.arbitration_id) + " ")
-
 
 
 def update():
@@ -82,7 +83,7 @@ def update():
         receive_can_messages()
 
     meters['RPM'].configure(amountused=values['rpmValue'])
-    meters['Load'].configure(value=values['tps'])
+    meters['Load'].configure(value=values['tpsValue'])
     meters['Temp'].configure(amountused=values['tempValue'])
     meters['Gear'].configure(amountused=values['gearValue'])
     meters['EPC'].configure(amountused=values['epcPWMValue'])
@@ -90,7 +91,7 @@ def update():
 
 
     #100ms = 10fps.. so maybe we can increase this later
-    app.after(100, update)  
+    app.after(10, update)  
 
 
 #region meters
