@@ -775,7 +775,7 @@ void DetermineTCCLockup()
 
 void PrintInfo()
 {
-  if (millis() - lastwritetime > 100)
+  if (millis() - lastwritetime > 50)
   {
     // Serial.print("Data::");
 
@@ -818,16 +818,24 @@ void PrintInfo()
     byte byte1, byte2;
 
     canMsg2.can_id = 1702; //setting a lower priority here so that we still can receive data
+    canMsg2.can_dlc = 8;
     canMsg2.data[0] = constrain(EPCPWM, 0, 255);
     canMsg2.data[1] = constrain(EPCSetpoint, 0, 255);
     canMsg2.data[2] = constrain(enabletcc, 0, 1);
     canMsg2.data[3] = constrain(CurrentGear, 0, 12);
     canMsg2.data[4] = constrain(ISS_Avg_Speed, 0, 255);
     canMsg2.data[5] = constrain(OSS_Avg_Speed, 0, 255);
-    splitIntoTwoBytes(LinePressure, canMsg2.data[6], canMsg2.data[7]);
-    splitIntoTwoBytes(EPCPressure, canMsg2.data[8], canMsg2.data[9]);
-    canMsg2.can_dlc = 10;
+    // splitIntoTwoBytes(LinePressure, canMsg2.data[6], canMsg2.data[7]);
+    canMsg2.data[6] = (LinePressure >> 8) & 0xFF;
+    canMsg2.data[7] = LinePressure & 0xFF;
+    // splitIntoTwoBytes(EPCPressure, canMsg2.data[8], canMsg2.data[9]);
+    // canMsg2.data[8] = byte1;
+    // canMsg2.data[9] = byte2;
+
     mcp2515.sendMessage(&canMsg2);
+
+    Serial.println("Sent");
+
 
     lastwritetime = millis();
   }
