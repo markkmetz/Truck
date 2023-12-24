@@ -8,7 +8,6 @@ from cgitb import text
 from socket import timeout
 from turtle import bgcolor, color, width
 from numpy import angle
-from pyscreeze import center
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from tkinter import Frame, X, StringVar
@@ -30,6 +29,7 @@ large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
 xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
 med_font = ttk.font.Font(size=15)
 small_font = ttk.font.Font(size=8)
+bus = can.interface.Bus(channel='can0', bustype='socketcan')
 
 values = {
 'rpmValue' : 0,
@@ -45,34 +45,45 @@ values = {
 meters = {}
 labels = {}
 
-def receive_can_messages(channel):
+def receive_can_messages():
     global timeout_counter
     global values
-    bus = can.interface.Bus(channel=channel, bustype='socketcan')
+    global bus
+    #bus = can.interface.Bus(channel=channel, bustype='socketcan')
+    
     while True:
-        canMsg = bus.recv(.5)
-        if canMsg is not None:  
-            if canMsg.arbitration_id == "5f0":
-                values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
-            elif canMsg.arbitration_id == "5f3":
-                values['tps'] = canMsg.data[1] | (canMsg.data[0] << 8)
-            elif canMsg.arbitration_id == "6A4":
-                values['epcPWMValue'] = canMsg.data[0]
-                values['gearValue'] = canMsg.data[3]
-                values['tccValue'] = canMsg.data[2]
+        canMsg = bus.recv(0)
+        if canMsg is None:  
+            break
+
+        print(canMsg.arbitration_id)
+
+        if canMsg.arbitration_id == 1520:
+            values['rpmValue'] = canMsg.data[7] | (canMsg.data[6] << 8)
+        elif canMsg.arbitration_id == 1523:
+            values['tps'] = canMsg.data[1] | (canMsg.data[0] << 8)
             
-        else:
-            print("Timeout")
+        elif canMsg.arbitration_id == 1702:
+            values['epcPWMValue'] = canMsg.data[0]
+            values['gearValue'] = canMsg.data[3]
+            values['tccValue'] = canMsg.data[2]
+            
+
+
+        text_box.insert('1.0',str(canMsg.arbitration_id) + " ")
+
 
 
 def update():
 
-
-
+    global values
+    
     if os_type == "Linux":
-        receive_can_messages('can0')
+        receive_can_messages()
 
     meters['RPM'].configure(amountused=values['rpmValue'])
+    meters['Load'].configure(value=values['tps'])
+    meters['Temp'].configure(amountused=values['tempValue'])
     meters['Gear'].configure(amountused=values['gearValue'])
     meters['EPC'].configure(amountused=values['epcPWMValue'])
     meters['MPH'].configure(amountused=values['speedValue'])
