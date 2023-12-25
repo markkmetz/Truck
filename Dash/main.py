@@ -4,32 +4,21 @@
 # sudo ip link set can0 up type can bitrate 500000
 # /.local/lib/python3.11/site-packages/ttkbootstrap/widgets.py
 
-
-from cgitb import text
-from socket import timeout
-from turtle import bgcolor, color, width
-from numpy import angle
-
-from ttkbootstrap.constants import *
-from tkinter import Frame, X, StringVar
 import time
-from PIL import Image,ImageTk
-import sys
 import platform
+from tkinter import Y
 import can
 from typing import cast, Any
 import threading
 from datetime import datetime
 
-
 os_type = platform.system()
-timeout_counter = 0
-
 bus = None
 count = 0
 
 if os_type == "Linux":
     bus = can.interface.Bus(channel='can0', bustype='socketcan')
+
 enableDisplay = True
 
 
@@ -44,7 +33,6 @@ if enableDisplay:
     xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
     med_font = ttk.font.Font(size=15)
     small_font = ttk.font.Font(size=8)
-
 
 
 values = {
@@ -68,9 +56,7 @@ t1 = None
 t2 = None
 
 def receive_can_messages(values,bus):
-    global timeout_counter
     global count
-
 
     while True:
         if os_type == "Linux":
@@ -115,8 +101,6 @@ def receive_can_messages(values,bus):
             values['RPM'] = count
 
 def update(meters,values):
-
-    t1 = datetime.now()
     if meters['RPM'].amountusedvar.get() != values['RPM']:
         meters['RPM'].amountusedvar.set(values['RPM'])
     # if meters['Bar'].amountusedvar.get() != values['Bar']:
@@ -126,7 +110,9 @@ def update(meters,values):
     if meters['Temp'].amountusedvar.get() != values['Temp']:
         meters['Temp'].amountusedvar.set(values['Temp'])
 
-    meters['TPS'].value = values['TPS']
+    if meters['TPS']['value'] != values['TPS']:
+        meters['TPS']['value'] = values['TPS']
+    #    meters['TPS'].configure(value= values['RPM'])
     if meters['Voltage'].amountusedvar.get() != values['Voltage']:
         meters['Voltage'].amountusedvar.set(values['Voltage'])
     if meters['MPH'].amountusedvar.get() != values['MPH']:
@@ -135,13 +121,12 @@ def update(meters,values):
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
-    meters['EPCPWM'].value = values['EPCPWM']
+    if meters['EPCPWM']['value'] != values['EPCPWM']:
+        meters['EPCPWM']['value'] = values['EPCPWM']
     if meters['Gear'].amountusedvar.get() != values['Gear']:
         meters['Gear'].amountusedvar.set(values['Gear'])
     meters['TCC'].variable = values['TCC']
 
-    t2 = datetime.now()
-    print(t2-t1)
     app.after(10,update,meters,values)  
 
 
@@ -172,7 +157,7 @@ if enableDisplay:
         frame,
         metersize=250,
         padding=5,
-        amountused=40,
+        amountused=0,
         metertype="semi",
         arcrange=120,
         arcoffset=270,
@@ -249,7 +234,7 @@ if enableDisplay:
         frame,
         metersize=250,
         padding=5,
-        amountused=65,
+        amountused=0,
         metertype="semi",
         arcrange=120,
         arcoffset=150,
@@ -268,7 +253,7 @@ if enableDisplay:
         frame,
         metersize=250,
         padding=5,
-        amountused=120,
+        amountused=0,
         metertype="semi",
         arcrange=120,
         arcoffset=150,
@@ -318,14 +303,14 @@ if enableDisplay:
     meter.place(x=1750,y=210)
     meters['Gear'] = meter
 
-    label = ttk.Label(frame, text="1", font=xl_font,foreground="#375a7f")
+    label = ttk.Label(frame, text="P", font=xl_font,foreground="#375a7f")
     label.place(x=1840, y=210 + 90)
     labels['Gear'] = label
 
     label = ttk.Label(frame, text="Gear", font=med_font)
     label.place(x=1830, y=210 + 140)
 
-    progressbar = ttk.Progressbar(frame, value=75, orient='vertical',length=170)
+    progressbar = ttk.Progressbar(frame, value=0, orient='vertical',length=170)
     progressbar.place(x=1890,y=210 + 8,width=20)
     meters['TPS'] = progressbar
 
