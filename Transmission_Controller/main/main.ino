@@ -829,19 +829,11 @@ void PrintInfo()
     canMsg2.data[6] = (LinePressure >> 8) & 0xFF;
     canMsg2.data[7] = LinePressure & 0xFF;
     // splitIntoTwoBytes(EPCPressure, canMsg2.data[8], canMsg2.data[9]);
-    // canMsg2.data[8] = byte1;
-    // canMsg2.data[9] = byte2;
+    canMsg2.data[8] = (EPCPressure >> 8) & 0xFF;;
+    canMsg2.data[9] = EPCPressure & 0xFF;;
 
     mcp2515.sendMessage(&canMsg2);
 
-    canMsg1.can_id = 1605;
-    canMsg1.can_dlc = 2;
-    canMsg1.data[0] = CommandedGear;
-      canMsg1.data[1] = count;
-      count = count+1;
-      mcp2515.sendMessage(&canMsg1);
-
-    Serial.println(count);
 
 
     lastwritetime = millis();
