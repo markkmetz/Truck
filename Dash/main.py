@@ -11,6 +11,7 @@ import can
 from typing import cast, Any
 import threading
 from datetime import datetime
+import numpy as np
 
 os_type = platform.system()
 bus = None
@@ -22,20 +23,24 @@ if os_type == "Linux":
 enableDisplay = True
 
 
-if enableDisplay:
-    import ttkbootstrap as ttk
-    app = ttk.Window()
-    style = ttk.Style(theme='darkly')
-    #app.attributes('-fullscreen', True)
-    frame = ttk.Frame(app, width=1920, height=515)
-    frame.pack()
-    large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
-    xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
-    med_font = ttk.font.Font(size=15)
-    small_font = ttk.font.Font(size=8)
+#if enableDisplay:
+import ttkbootstrap as ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
+app = ttk.Window()
+style = ttk.Style(theme='darkly')
+#app.attributes('-fullscreen', True)
+frame = ttk.Frame(app, width=1920, height=515)
+frame.pack()
+large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
+xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
+med_font = ttk.font.Font(size=15)
+small_font = ttk.font.Font(size=8)
 
 values = {
+'Time':[],
+'rpmtest': [0 for _ in range(40)],
 'RPM' : 0,
 'Bar': 0,
 'MAP':0,
@@ -47,7 +52,8 @@ values = {
 'LinePSI' : 0,
 'EPCPWM':0,
 'Gear' : 0,
-'TCC' : 0
+'TCC' : 0,
+'Fuel': 0
 }
 
 meters = {}
@@ -77,15 +83,18 @@ def receive_can_messages(values,bus):
                 
                 #Transmission controller data-------------
                 elif canMsg.arbitration_id == 1702:
-                    values['EPCPWM'] = canMsg.data[0]
-                    #values['epcSetPointValue'] = canMsg.data[1]
-                    values['TCC'] = canMsg.data[2]
-                    values['Gear'] = canMsg.data[3]
-                    #values['ISS'] = canMsg.data[4]
-                    values['MPH'] = canMsg.data[5]
-                    values['LinePSI'] = (canMsg.data[7] | (canMsg.data[6] << 8))/10
-                    values['EPCPSI'] = (canMsg.data[9] | (canMsg.data[8] << 8))/10
+                    values['TCC'] = canMsg.data[0]
+                    values['Gear'] = canMsg.data[1]
+                    values['MPH'] = canMsg.data[2]
 
+                elif canMsg.arbitration_id == 1702:
+                    values['LinePSI'] = (canMsg.data[0] | (canMsg.data[1] << 8))/10
+                    values['EPCPSI'] = (canMsg.data[2] | (canMsg.data[3] << 8))/10
+                    values['EPCPWM'] = canMsg.data[4]
+                    #values['epcSetPointValue'] = canMsg.data[1]    5 
+                    #values['ISS'] = canMsg.data[6 ]                6
+                    values['Fuel'] = canMsg.data[7]
+                    
                 if not enableDisplay:
                     print("ID:" + str(canMsg.arbitration_id))
                     s = " Data: "
@@ -95,10 +104,14 @@ def receive_can_messages(values,bus):
                     print("")
 
         else:
-            print(count)
             count += 1
             time.sleep(.05)
             values['RPM'] = count
+            values['rpmtest'].append(count)
+            values['rpmtest'] = values['rpmtest'][1:]
+            meters['epc_plt'].set_ydata(values['rpmtest'])
+            meters['cnv'].draw()
+            print(values['rpmtest'])
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
@@ -126,6 +139,8 @@ def update(meters,values):
     if meters['Gear'].amountusedvar.get() != values['Gear']:
         meters['Gear'].amountusedvar.set(values['Gear'])
     meters['TCC'].variable = values['TCC']
+    if meters['Fuel'].amountusedvar.get() != values['Fuel']:
+        meters['Fuel'].amountusedvar.set(values['Fuel'])
 
     app.after(10,update,meters,values)  
 
@@ -190,6 +205,37 @@ if enableDisplay:
     meter.place(x=-80,y=210)
     meters['Voltage'] = meter
 
+    #-----------------------------------------------------
+    #graph area
+    fig = Figure(figsize=(6, 2), dpi=100)
+    t = np.arange(0, 3, .01)
+    ax = fig.add_subplot(111)
+    ax.set_ylim(0,200)
+
+    # line, = ax.plot(values[''])    
+    # meters['epc_plt'] = line
+
+    line, = ax.plot(values['rpmtest'])    
+    meters['epc_plt'] = line
+
+    
+
+    # Add the second line
+    #y2 = np.cos(4 * np.pi * t)  # Example second data
+    #ax.plot(t, y2)
+        
+    fig.patch.set_facecolor('#222222')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.tick_params(bottom=False,labelbottom=False,left=False,labelleft=False)
+    ax.set_facecolor('#222222')
+
+    canvas = FigureCanvasTkAgg(fig, master=frame)  # A tk.DrawingArea.
+    canvas.draw()
+    canvas.get_tk_widget().place(x=700,y=-5)
+    meters['cnv'] = canvas
 
     #-----------------------------------------------------
     #   SPEEDOMETER MPH

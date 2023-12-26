@@ -212,6 +212,7 @@ int EPCSetpoint = 30;
 // INPUTS
 const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
+const byte Fuel_Level_Pin = A8;
 const byte LINE_PRESSURE_PIN = A7;
 const byte EPC_PRESSURE_PIN = A6;
 
@@ -233,6 +234,7 @@ const int OSS_Smoothing = 10;
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
 double Load_Avg = 0;
+int FuelLevel;
 int LinePressure;
 int EPCPressure;
 int EPCPWM = 0;
@@ -292,6 +294,7 @@ void setup()
 
   pinMode(ISS_Pin, INPUT_PULLUP);
   pinMode(OSS_Pin, INPUT_PULLUP);
+  pinMode(Fuel_Level_Pin, INPUT);
   pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
@@ -815,26 +818,27 @@ void PrintInfo()
     // Serial.println(OSS_Avg_Speed);
 
     struct can_frame canMsg2;
-    byte byte1, byte2;
-
-    canMsg2.can_id = 1702; //setting a lower priority here so that we still can receive data
-    canMsg2.can_dlc = 8;
-    canMsg2.data[0] = constrain(EPCPWM, 0, 255);
-    canMsg2.data[1] = constrain(EPCSetpoint, 0, 255);
-    canMsg2.data[2] = constrain(enabletcc, 0, 1);
-    canMsg2.data[3] = constrain(CurrentGear, 0, 12);
-    canMsg2.data[4] = constrain(ISS_Avg_Speed, 0, 255);
-    canMsg2.data[5] = constrain(OSS_Avg_Speed, 0, 255);
-    // splitIntoTwoBytes(LinePressure, canMsg2.data[6], canMsg2.data[7]);
-    canMsg2.data[6] = (LinePressure >> 8) & 0xFF;
-    canMsg2.data[7] = LinePressure & 0xFF;
-    // splitIntoTwoBytes(EPCPressure, canMsg2.data[8], canMsg2.data[9]);
-    canMsg2.data[8] = (EPCPressure >> 8) & 0xFF;;
-    canMsg2.data[9] = EPCPressure & 0xFF;;
-
+    canMsg2.can_id = 1702;
+    canMsg2.can_dlc = 3;
+    canMsg2.data[0] = constrain(enabletcc, 0, 1);
+    canMsg2.data[1] = constrain(CurrentGear, 0, 12);
+    canMsg2.data[2] = constrain(OSS_Avg_Speed, 0, 255);
     mcp2515.sendMessage(&canMsg2);
 
+    struct can_frame canMsg3;
+    canMsg2.can_id = 1802;
+    canMsg2.can_dlc = 8;
+    canMsg3.data[0] = (LinePressure >> 8) & 0xFF;
+    canMsg3.data[1] = LinePressure & 0xFF;
 
+    canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;;
+    canMsg3.data[3] = EPCPressure & 0xFF;;
+
+    canMsg3.data[4] = constrain(EPCPWM, 0, 255);
+    canMsg3.data[5] = constrain(EPCSetpoint, 0, 255);
+    canMsg3.data[6] = constrain(ISS_Avg_Speed, 0, 255);
+    canMsg3.data[7] = constrain(FuelLevel, 0, 255);
+    mcp2515.sendMessage(&canMsg3);
 
     lastwritetime = millis();
   }
@@ -911,6 +915,7 @@ void CheckShift()
 
 void MeasurePressures()
 {
+  FuelLevel = analogRead(Fuel_Level_Pin);
   //.29 is used to convert the 0-5v 0-300psi signal to 0-255
   LinePressure = analogRead(LINE_PRESSURE_PIN) * .29;
   EPCPressure = analogRead(EPC_PRESSURE_PIN) * .29;
