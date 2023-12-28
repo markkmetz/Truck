@@ -12,6 +12,7 @@ from typing import cast, Any
 import threading
 from datetime import datetime
 import numpy as np
+import os
 
 os_type = platform.system()
 bus = None
@@ -38,6 +39,7 @@ xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
 med_font = ttk.font.Font(size=15)
 small_font = ttk.font.Font(size=8)
 
+
 values = {
 'Time':[],
 'rpmtest': [0 for _ in range(40)],
@@ -53,23 +55,36 @@ values = {
 'EPCPWM':0,
 'Gear' : 0,
 'TCC' : 0,
-'Fuel': 0
+'Fuel': 0,
+'Oil' : 0
 }
 
 meters = {}
 labels = {}
 t1 = None
 t2 = None
+LastMessageTime = datetime.now()
 
-def receive_can_messages(values,bus):
+def screen_off():
+    os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+
+def screen_on():
+    os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+
+def receive_can_messages(values,bus,LastMessageTime):
     global count
 
     while True:
         if os_type == "Linux":
             canMsg = bus.recv(0.01)
+
             if canMsg is not None:  
                 canMsg = cast(can.Message,canMsg)
-                
+
+                if (LastMessageTime - datetime.now()).total_seconds() >3:
+                    print("CAN Comms detected!")
+                    screen_on()
+
                 #microsquirt data------------------------
                 if canMsg.arbitration_id == 1520:
                     values['RPM'] = canMsg.data[7] | (canMsg.data[6] << 8)
@@ -86,6 +101,8 @@ def receive_can_messages(values,bus):
                     values['TCC'] = canMsg.data[0]
                     values['Gear'] = canMsg.data[1]
                     values['MPH'] = canMsg.data[2]
+                    values['Oil'] = canMsg.data[3]
+
 
                 elif canMsg.arbitration_id == 1702:
                     values['LinePSI'] = (canMsg.data[0] | (canMsg.data[1] << 8))/10
@@ -94,6 +111,8 @@ def receive_can_messages(values,bus):
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = canMsg.data[7]
+
+                LastMessageTime = datetime.now()        
                     
                 if not enableDisplay:
                     print("ID:" + str(canMsg.arbitration_id))
@@ -103,6 +122,12 @@ def receive_can_messages(values,bus):
                     print(s)
                     print("")
 
+            else:
+                if (LastMessageTime - datetime.now()).total_seconds() >3:
+                    print("Timeout...")
+                    screen_off()
+                    time.sleep(15)
+
         else:
             count += 1
             time.sleep(.05)
@@ -111,7 +136,6 @@ def receive_can_messages(values,bus):
             values['rpmtest'] = values['rpmtest'][1:]
             meters['epc_plt'].set_ydata(values['rpmtest'])
             meters['cnv'].draw()
-            print(values['rpmtest'])
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
@@ -132,6 +156,7 @@ def update(meters,values):
         meters['MPH'].amountusedvar.set(values['MPH'])
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
+        label.config(text = values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
     if meters['EPCPWM']['value'] != values['EPCPWM']:
@@ -141,6 +166,8 @@ def update(meters,values):
     meters['TCC'].variable = values['TCC']
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
+    if meters['Oil'].amountusedvar.get() != values['Oil']:
+        meters['Oil'].amountusedvar.set(values['Oil'])
 
     app.after(10,update,meters,values)  
 
@@ -313,7 +340,7 @@ if enableDisplay:
     meter.place(x=1750,y=0)
     meters['EPCPSI'] = meter
 
-    label = ttk.Label(frame, text="120", font=large_font,foreground="#375a7f")
+    label = ttk.Label(frame, text="0", font=large_font,foreground="#375a7f")
     label.place(x=1810, y=90)
     labels['EPCPSI'] = label
 
@@ -367,13 +394,13 @@ if enableDisplay:
     #-----------------------------------------------------
     #   TCC indicator
 
-    tcc = ttk.Radiobutton(style="info",text="TCC")
+    tcc = ttk.Radiobutton(frame, style="info",text="TCC")
     tcc.place(x=1830,y=265)
     meters['TCC'] = tcc
 
-    checkengine = ttk.Radiobutton(style="warning",text="Check Engine")
-    checkengine.place(x=500,y=10)
-    meters['Check'] = checkengine
+    # checkengine = ttk.Radiobutton(frame, style="warning",text="Check Engine")
+    # checkengine.place(x=500,y=10)
+    # meters['Check'] = checkengine
 
 
     #-----------------------------------------------------
@@ -391,12 +418,12 @@ if enableDisplay:
     #endregion
 
 
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus))
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
     recv_thread.start()
     update(meters,values)
     app.mainloop()
 else:
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus))
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
     recv_thread.start()
     print("started!")
     while True:

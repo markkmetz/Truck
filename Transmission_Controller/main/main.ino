@@ -213,6 +213,7 @@ int EPCSetpoint = 30;
 const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
 const byte Fuel_Level_Pin = A8;
+const byte OIL_Pressure_PIN = A5;
 const byte LINE_PRESSURE_PIN = A7;
 const byte EPC_PRESSURE_PIN = A6;
 
@@ -236,6 +237,7 @@ bool Load_Change = false; // not used except for testing? TODO
 double Load_Avg = 0;
 int FuelLevel;
 int LinePressure;
+int OilPressure;
 int EPCPressure;
 int EPCPWM = 0;
 int rpmValue;
@@ -295,6 +297,7 @@ void setup()
   pinMode(ISS_Pin, INPUT_PULLUP);
   pinMode(OSS_Pin, INPUT_PULLUP);
   pinMode(Fuel_Level_Pin, INPUT);
+  pinMode(OIL_Pressure_PIN, INPUT);
   pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
@@ -819,10 +822,11 @@ void PrintInfo()
 
     struct can_frame canMsg2;
     canMsg2.can_id = 1702;
-    canMsg2.can_dlc = 3;
+    canMsg2.can_dlc = 4;
     canMsg2.data[0] = constrain(enabletcc, 0, 1);
     canMsg2.data[1] = constrain(CurrentGear, 0, 12);
     canMsg2.data[2] = constrain(OSS_Avg_Speed, 0, 255);
+    canMsg2.data[3] = constrain(OilPressure, 0, 255);
     mcp2515.sendMessage(&canMsg2);
 
     struct can_frame canMsg3;
@@ -916,7 +920,9 @@ void CheckShift()
 void MeasurePressures()
 {
   FuelLevel = analogRead(Fuel_Level_Pin);
-  //.29 is used to convert the 0-5v 0-300psi signal to 0-255
+  //.29 is used to convert the 0-5v 0-1024 value signal to 0-300psi
+  //.15 for 0-1024 to 0-150psi
+  OilPressure = analogRead(OIL_Pressure_PIN) * .15;
   LinePressure = analogRead(LINE_PRESSURE_PIN) * .29;
   EPCPressure = analogRead(EPC_PRESSURE_PIN) * .29;
 }
