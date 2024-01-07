@@ -1,7 +1,7 @@
 // https://wokwi.com/projects/new/arduino-uno
 // https://ww2-secure.justanswer.com/uploads/bobover/2011-02-05_023022_line_pressure_test_4r70w.pdf
 
-const String VERSION = "12.02.23.1";
+const String VERSION = "01.02.24.1";
 // const bool ENABLE_CAN_BUS;
 int count = 11;
 #include <SPI.h>
@@ -204,7 +204,7 @@ public:
     lastOutput = 0;
   }
 };
-PID inGearPID(.5, .5, .5);
+PID inGearPID(.1, .1, .1);
 PID shiftingPID(1, 1, 1);
 
 int EPCSetpoint = 30;
@@ -230,7 +230,7 @@ const double GearRatio = 4.56;
 const double TireSize = 33;
 
 const int ISS_Smoothing = 10;
-const int OSS_Smoothing = 10;
+const int OSS_Smoothing = 20;
 
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
@@ -313,14 +313,6 @@ void setup()
 
   Shift();
 
-  if (!verifycurves())
-  {
-    Serial.println("Error with shift curves. Halting execution.");
-    while (1 == 2)
-    {
-      delay(1000);
-    }
-  }
 }
 
 void loop()
@@ -489,44 +481,6 @@ void loop()
       Serial.println(enabletestshifting);
       break;
     }
-    case 118: // v --verify curves
-    {
-      if (verifycurves())
-      {
-        Serial.println("Shift curves good.");
-      }
-      else
-      {
-        Serial.println("Error with shift curves");
-      }
-      break;
-    }
-    case 43: // + --shift y int of curves up by 2
-    {
-      // for (int i = 0; i < 6; i++)
-      //   bettercurves[i].y0 = defaultcurves[i].y0 + 2;
-
-      // Serial.println("curves shifted UP. verifying new curves");
-      // if (verifycurves())
-      //   Serial.println("Shift curves good.");
-      // else
-      //   Serial.println("Error with shift curves");
-
-      // break;
-    }
-    case 45: // -    -shift y int of curves down by 2
-    {
-      // for (int i = 0; i < 6; i++)
-      //   bettercurves[i].y0 = defaultcurves[i].y0 - 2;
-
-      // Serial.println("curves shifted DOWN. verifying new curves");
-      // if (verifycurves())
-      //   Serial.println("Shift curves good.");
-      // else
-      //   Serial.println("Error with shift curves");
-
-      // break;
-    }
     default: // command not found
     {
       if (cmd != -1)
@@ -671,10 +625,15 @@ void MeasureSpeed()
     OSS_Speed_Count++;
   else
   {
+    for(int i =0; i<OSS_Smoothing; i++){
+      Serial.print(OSS_Speeds[i]);
+      Serial.print(",");
+    }
+    Serial.println("");
     OSS_Speed_Count = 0;
   }
 
-  double newspeed = getDoubleAverage(OSS_Speeds, OSS_Smoothing);
+  double newspeed = getDoubleAverageWithoutExtremeValues(OSS_Speeds, OSS_Smoothing);
   OSS_Avg_Speed = newspeed;
 }
 
@@ -830,8 +789,8 @@ void PrintInfo()
     mcp2515.sendMessage(&canMsg2);
 
     struct can_frame canMsg3;
-    canMsg2.can_id = 1802;
-    canMsg2.can_dlc = 8;
+    canMsg3.can_id = 1802;
+    canMsg3.can_dlc = 8;
     canMsg3.data[0] = (LinePressure >> 8) & 0xFF;
     canMsg3.data[1] = LinePressure & 0xFF;
 
@@ -841,9 +800,12 @@ void PrintInfo()
     canMsg3.data[4] = constrain(EPCPWM, 0, 255);
     canMsg3.data[5] = constrain(EPCSetpoint, 0, 255);
     canMsg3.data[6] = constrain(ISS_Avg_Speed, 0, 255);
-    canMsg3.data[7] = constrain(FuelLevel, 0, 255);
+    canMsg3.data[7] = constrain(FuelLevel/4.01, 0, 255);
     mcp2515.sendMessage(&canMsg3);
-
+    Serial.print("Pressure:");
+    Serial.print(EPCPressure);
+    Serial.print(",PWM:");
+    Serial.println(EPCPWM);
     lastwritetime = millis();
   }
 }
@@ -855,65 +817,11 @@ void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
   return;
 }
 
-void DumpInfo()
-{
-  Serial.println("Error: ");
-  Serial.print("OSS 0:");
-  Serial.println(OSS_Speeds[0]);
-  Serial.print("OSS 1:");
-  Serial.println(OSS_Speeds[1]);
-  Serial.print("OSS 2:");
-  Serial.println(OSS_Speeds[2]);
-  Serial.print("OSS 3:");
-  Serial.println(OSS_Speeds[3]);
-  Serial.print("OSS 4:");
-  Serial.println(OSS_Speeds[3]);
-
-  Serial.println("");
-
-  Serial.print("Average speed:");
-  Serial.println(OSS_Avg_Speed);
-
-  Serial.println("");
-
-  Serial.print("prev micros:");
-  Serial.println(OSS_Previous_Mircros);
-  Serial.print("current micros:");
-  Serial.println(OSS_Current_Mircros);
-
-  Serial.println("");
-
-  Serial.print("current gear:");
-  Serial.println(CurrentGear);
-
-  Serial.print("desired gear:");
-  Serial.println(CalculateGear());
-}
-
 void CheckShift()
 {
   if (!ShiftingTimer.isRunning)
   {
     CommandedGear = CalculateGear();
-  }
-
-  if (loggingenabled)
-  {
-    // Serial.print("CheckShift(): current/commanded: ");
-    // Serial.print(CurrentGear);
-    // Serial.print(",");
-    // Serial.println(CommandedGear);
-    // Serial.print("CheckShift(): speed/load: ");
-    // Serial.print(OSS_Avg_Speed);
-    // Serial.print(",");
-    // Serial.println(Load_Avg);
-  }
-  if (CurrentGear != CommandedGear)
-  {
-    // Serial.print("gear: ");
-    // Serial.print(CommandedGear);
-    // Serial.print(",speed: ");
-    // Serial.println(OSS_Avg_Speed);
   }
 }
 
@@ -1142,16 +1050,47 @@ double getDoubleAverage(double arr[], int size)
   int i = 0;
   double sum = 0;
   double avg;
-
   for (i = 0; i < size; ++i)
   {
     sum += arr[i];
   }
-
   avg = sum / size;
-
   return avg;
 }
+
+double getDoubleAverageWithoutExtremeValues(double arr[], int size)
+{
+    double sum = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        sum += arr[i];
+    }
+    double mean = sum / size;
+
+    double sq_diff_sum = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        sq_diff_sum += (arr[i] - mean) * (arr[i] - mean);
+    }
+    double std_dev = sqrt(sq_diff_sum / size);
+
+    double lowerBound = mean - 2 * std_dev;
+    double upperBound = mean + 2 * std_dev;
+
+    sum = 0;
+    int count = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        if (arr[i] >= lowerBound && arr[i] <= upperBound)
+        {
+            sum += arr[i];
+            ++count;
+        }
+    }
+
+    return count == 0 ? 0 : sum / count;
+}
+
 
 double getAverage(int arr[], int size)
 {
@@ -1166,47 +1105,6 @@ double getAverage(int arr[], int size)
   if (avg > 140)
   {
     Serial.println("error at getAverage()");
-    DumpInfo();
   }
   return avg;
-}
-
-bool verifycurves()
-{
-  // // the previous upshift curve will always be above the next gears down shift
-  // // for example: 1 up has a higher y val than 2 down
-
-  // float prevslope = 0;
-  // for (Curve c : defaultcurves)
-  // {
-  //   c.slope = (c.y100 - c.y0) / 100;
-
-  //   if (loggingenabled)
-  //   {
-  //     Serial.print(c.curvename);
-  //     Serial.print(",");
-  //     Serial.print(c.y0);
-  //     Serial.print(",");
-  //     Serial.print(c.y100);
-  //     Serial.print(",");
-  //     Serial.println(c.slope);
-  //   }
-
-  //   if (c.slope < prevslope)
-  //     return false;
-  // }
-
-  // if (defaultcurves[0].y0 < defaultcurves[1].y0)
-  //   return false;
-  // if (defaultcurves[2].y0 < defaultcurves[3].y0)
-  //   return false;
-  // if (defaultcurves[4].y0 < defaultcurves[5].y0)
-  //   return false;
-
-  // if (defaultcurves[0].y0 > defaultcurves[2].y0)
-  //   return false;
-  // if (defaultcurves[2].y0 > defaultcurves[4].y0)
-  //   return false;
-
-  return true;
 }
