@@ -819,10 +819,11 @@ void CheckShift()
 void MeasurePressures()
 {
   FuelLevel = analogRead(Fuel_Level_Pin);
-  //.29 is used to convert the 0-5v 0-1024 value signal to 0-300psi
-  //.15 for 0-1024 to 0-150psi
-  OilPressure = analogRead(OIL_Pressure_PIN) * .15;
-  EPCPressure = analogRead(EPC_PRESSURE_PIN) * .29;
+  //.367 is used to convert the 0.5-4.5v 0-1024 value signal to 0-300psi
+  //.184 for 0-1024 to 0-150psi
+  //102 is the .5v offset
+  OilPressure = analogRead(OIL_Pressure_PIN) - 102 * 0.184;
+  EPCPressure = analogRead(EPC_PRESSURE_PIN) - 102 * 0.367;
 }
 
 void Shift()
