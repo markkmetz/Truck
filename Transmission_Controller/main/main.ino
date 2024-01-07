@@ -233,7 +233,7 @@ public:
     lastOutput = 0;
   }
 };
-PID inGearPID(.1, .1, .1);
+PID inGearPID(.25, 0.2, 0.2);
 PID shiftingPID(1, 1, 1);
 
 int EPCSetpoint = 30;
@@ -422,7 +422,6 @@ void loop()
       // shutdown epc. should probably be a function
       EPCSetpoint = 0;
       analogWrite(EPC_PIN, EPCSetpoint);
-
       Serial.print("EPC = ");
       Serial.println(enableEPC);
       break;
@@ -710,12 +709,14 @@ void RegulateEPC()
     if (shiftingTimer.isRunning)
     {
       EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-      EPCPWM = 255 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
+      //EPCPWM = 255 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
+      EPCPWM = 100;
     }
     else
     {
       EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
       EPCPWM = 255 - inGearPID.calculate(EPCSetpoint, EPCPressure);
+      EPCPWM = 80;
     }
 
     if (EPCPWM > 255)
@@ -793,10 +794,6 @@ void SendCanData()
     canMsg3.data[6] = constrain(ISS_Avg_Speed, 0, 255);
     canMsg3.data[7] = constrain(FuelLevel / 4.01, 0, 255);
     mcp2515.sendMessage(&canMsg3);
-    Serial.print("Pressure:");
-    Serial.print(EPCPressure);
-    Serial.print(",PWM:");
-    Serial.println(EPCPWM);
     lastwritetime = millis();
   }
 }
@@ -822,8 +819,10 @@ void MeasurePressures()
   //.367 is used to convert the 0.5-4.5v 0-1024 value signal to 0-300psi
   //.184 for 0-1024 to 0-150psi
   //102 is the .5v offset
-  OilPressure = analogRead(OIL_Pressure_PIN) - 102 * 0.184;
-  EPCPressure = analogRead(EPC_PRESSURE_PIN) - 102 * 0.367;
+  OilPressure = (analogRead(OIL_Pressure_PIN) - 102) * 0.184;
+  EPCPressure = (analogRead(EPC_PRESSURE_PIN) - 102) * 0.367;
+  EPCPressure = constrain(EPCPressure,0,300);
+  OilPressure = constrain(OilPressure,0,150);
 }
 
 void Shift()
@@ -837,8 +836,8 @@ void Shift()
   //  4 1/1
 
   // clear the pid error and output
-  inGearPID.clear();
-  shiftingPID.clear();
+  //inGearPID.clear();
+  //shiftingPID.clear();
 
   if (CurrentGear - CommandedGear > 1)
   {
