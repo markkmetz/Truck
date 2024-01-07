@@ -94,15 +94,13 @@ public:
   unsigned long timerLastStart;
   unsigned long timerLastStop;
   bool isRunning;
-  Curve ShiftCurve;
 
-  void start(int length, Curve curve)
+  void start(int length)
   {
     currentTime = millis();
     timerLastStart = currentTime;
     timerLastStop = 0;
     timerLength = length;
-    ShiftCurve = curve;
     isRunning = true;
   }
 
@@ -145,6 +143,37 @@ public:
       }
     }
   }
+};
+
+class ShiftingTimer : public Timer
+{
+  using Timer::Timer;
+
+public:
+  Curve ShiftCurve;
+
+  void start(int length, Curve curve)
+  {
+    ShiftCurve = curve;
+    Timer::start(length);
+  }
+};
+
+class TCCTimer : public Timer
+{
+  using Timer::Timer;
+
+  public:
+    int TCCPWM = 0;
+  private:
+    int msStep = 100;
+
+  void Run()
+  {
+    
+    Timer::Run();
+  }
+
 };
 
 class PID
@@ -274,8 +303,8 @@ bool loggingenabled = 1;
 int cmd = -1;
 
 // Timers
-Timer ShiftingTimer(Shift);
-Timer TCCTimer;
+ShiftingTimer shiftingTimer(Shift);
+//Timer tccTimer(Lockup);
 
 bool tccTimer = false;
 bool shifting = false;
@@ -309,13 +338,12 @@ void setup()
   OSS_Previous_Mircros = micros();
 
   Shift();
-
 }
 
 void loop()
 {
   // run the timers
-  ShiftingTimer.Run();
+  shiftingTimer.Run();
 
   cmd = Serial.read();
   MeasurePressures();
@@ -351,18 +379,18 @@ void loop()
     case 50: // 2 --shift to 2nd gear
     {
       CommandedGear = 2;
-      ShiftingTimer.start(500, bettercurves[FirstUP]);
+      shiftingTimer.start(500, bettercurves[FirstUP]);
       break;
     }
     case 51: // 3 --shift to 3rd gear
     {
-      ShiftingTimer.start(500, bettercurves[SecondUp]);
+      shiftingTimer.start(500, bettercurves[SecondUp]);
       CommandedGear = 3;
       break;
     }
     case 52: // 4 --shift to 4th gear
     {
-      ShiftingTimer.start(500, bettercurves[ThirdUp]);
+      shiftingTimer.start(500, bettercurves[ThirdUp]);
       CommandedGear = 4;
       break;
     }
@@ -622,7 +650,8 @@ void MeasureSpeed()
     OSS_Speed_Count++;
   else
   {
-    for(int i =0; i<OSS_Smoothing; i++){
+    for (int i = 0; i < OSS_Smoothing; i++)
+    {
       Serial.print(OSS_Speeds[i]);
       Serial.print(",");
     }
@@ -678,14 +707,14 @@ void RegulateEPC()
       }
     }
 
-    if (ShiftingTimer.isRunning)
+    if (shiftingTimer.isRunning)
     {
-      EPCSetpoint = CalcPressureValue(ShiftingTimer.ShiftCurve, Load_Avg);
+      EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
       EPCPWM = 255 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
     }
     else
     {
-      EPCSetpoint = ShiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
+      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
       EPCPWM = 255 - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
@@ -716,23 +745,22 @@ void RegulateEPC()
   }
 }
 
-void DetermineTCCLockup()
+void CalculateTCCLockup()
 {
-  // TCC_Current_Millis = millis();
+  if (shiftingTimer.isRunning)
+  {
+    enabletcc = false;
+    return;
+  }
 
-  // if (TCC_Current_Millis - TCC_Previous_Millis > .25)
-  //   waitingtcc = false;
-
-  // TCC_Previous_Millis = TCC_Current_Millis;
-
-  // // TODO make this a function of load_avg + temp + rpm
-  // if (CurrentGear == 4 and Load_Avg < 0.75 and !shifting)
-  // {
-  //   analogWrite(TCC_PIN, TCC_Max);
-  //   waitingtcc = true;
-  // }
-  // else
-  analogWrite(TCC_PIN, 0);
+  if (CurrentGear == 4 && OSS_Avg_Speed > 50)
+  {
+    enabletcc = true;
+  }
+  else
+  {
+    enabletcc = false;
+  }
 }
 
 void SendCanData()
@@ -752,16 +780,18 @@ void SendCanData()
     struct can_frame canMsg3;
     canMsg3.can_id = 1802;
     canMsg3.can_dlc = 8;
-    canMsg3.data[0] = 0; //empty was line pressure
-    canMsg3.data[1] = 0; //empty was line pressure
+    canMsg3.data[0] = 0; // empty was line pressure
+    canMsg3.data[1] = 0; // empty was line pressure
 
-    canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;;
-    canMsg3.data[3] = EPCPressure & 0xFF;;
+    canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;
+    ;
+    canMsg3.data[3] = EPCPressure & 0xFF;
+    ;
 
     canMsg3.data[4] = constrain(EPCPWM, 0, 255);
     canMsg3.data[5] = constrain(EPCSetpoint, 0, 255);
     canMsg3.data[6] = constrain(ISS_Avg_Speed, 0, 255);
-    canMsg3.data[7] = constrain(FuelLevel/4.01, 0, 255);
+    canMsg3.data[7] = constrain(FuelLevel / 4.01, 0, 255);
     mcp2515.sendMessage(&canMsg3);
     Serial.print("Pressure:");
     Serial.print(EPCPressure);
@@ -780,7 +810,7 @@ void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
 
 void CheckShift()
 {
-  if (!ShiftingTimer.isRunning)
+  if (!shiftingTimer.isRunning)
   {
     CommandedGear = CalculateGear();
   }
@@ -924,7 +954,7 @@ int CalculateGear()
 
     if (rpmValue > 1700 || rpmValue == 0 || OSS_Avg_Speed > 5)
     {
-      ShiftingTimer.start(500, bettercurves[FirstUP]);
+      shiftingTimer.start(500, bettercurves[FirstUP]);
       return 2;
     }
     else
@@ -936,12 +966,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcShiftValue(SecondUp, Load_Avg)))
     {
-      ShiftingTimer.start(500, bettercurves[SecondUp]);
+      shiftingTimer.start(500, bettercurves[SecondUp]);
       return 3;
     }
     else if (rpmValue != 0 && rpmValue < 1400 && OSS_Avg_Speed < 2)
     {
-      ShiftingTimer.start(500, bettercurves[SecondDown]);
+      shiftingTimer.start(500, bettercurves[SecondDown]);
       return 1;
     }
     else
@@ -953,12 +983,12 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed > (CalcShiftValue(ThirdUp, Load_Avg)))
     {
-      ShiftingTimer.start(500, bettercurves[ThirdUp]);
+      shiftingTimer.start(500, bettercurves[ThirdUp]);
       return 4;
     }
     else if (OSS_Avg_Speed < (CalcShiftValue(ThirdDown, Load_Avg)))
     {
-      ShiftingTimer.start(500, bettercurves[ThirdDown]);
+      shiftingTimer.start(500, bettercurves[ThirdDown]);
       return 2;
     }
     else
@@ -970,7 +1000,7 @@ int CalculateGear()
   {
     if (OSS_Avg_Speed < (CalcShiftValue(FourthDown, Load_Avg)))
     {
-      ShiftingTimer.start(500, bettercurves[FourthDown]);
+      shiftingTimer.start(500, bettercurves[FourthDown]);
       return 3;
     }
     else
@@ -1020,37 +1050,36 @@ double getDoubleAverage(double arr[], int size)
 
 double getDoubleAverageWithoutExtremeValues(double arr[], int size)
 {
-    double sum = 0;
-    for (int i = 0; i < size; ++i)
+  double sum = 0;
+  for (int i = 0; i < size; ++i)
+  {
+    sum += arr[i];
+  }
+  double mean = sum / size;
+
+  double sq_diff_sum = 0;
+  for (int i = 0; i < size; ++i)
+  {
+    sq_diff_sum += (arr[i] - mean) * (arr[i] - mean);
+  }
+  double std_dev = sqrt(sq_diff_sum / size);
+
+  double lowerBound = mean - 2 * std_dev;
+  double upperBound = mean + 2 * std_dev;
+
+  sum = 0;
+  int count = 0;
+  for (int i = 0; i < size; ++i)
+  {
+    if (arr[i] >= lowerBound && arr[i] <= upperBound)
     {
-        sum += arr[i];
+      sum += arr[i];
+      ++count;
     }
-    double mean = sum / size;
+  }
 
-    double sq_diff_sum = 0;
-    for (int i = 0; i < size; ++i)
-    {
-        sq_diff_sum += (arr[i] - mean) * (arr[i] - mean);
-    }
-    double std_dev = sqrt(sq_diff_sum / size);
-
-    double lowerBound = mean - 2 * std_dev;
-    double upperBound = mean + 2 * std_dev;
-
-    sum = 0;
-    int count = 0;
-    for (int i = 0; i < size; ++i)
-    {
-        if (arr[i] >= lowerBound && arr[i] <= upperBound)
-        {
-            sum += arr[i];
-            ++count;
-        }
-    }
-
-    return count == 0 ? 0 : sum / count;
+  return count == 0 ? 0 : sum / count;
 }
-
 
 double getAverage(int arr[], int size)
 {
