@@ -214,7 +214,6 @@ const byte ISS_Pin = 8;
 const byte OSS_Pin = 9;
 const byte Fuel_Level_Pin = A8;
 const byte OIL_Pressure_PIN = A5;
-const byte LINE_PRESSURE_PIN = A7;
 const byte EPC_PRESSURE_PIN = A6;
 
 // OUTPUTS
@@ -236,7 +235,6 @@ const int OSS_Smoothing = 20;
 bool Load_Change = false; // not used except for testing? TODO
 double Load_Avg = 0;
 int FuelLevel;
-int LinePressure;
 int OilPressure;
 int EPCPressure;
 int EPCPWM = 0;
@@ -298,7 +296,6 @@ void setup()
   pinMode(OSS_Pin, INPUT_PULLUP);
   pinMode(Fuel_Level_Pin, INPUT);
   pinMode(OIL_Pressure_PIN, INPUT);
-  pinMode(LINE_PRESSURE_PIN, INPUT);
   pinMode(EPC_PRESSURE_PIN, INPUT);
 
   // Can Bus stuff
@@ -512,7 +509,7 @@ void loop()
       // Serial.println(rpmValue);
     }
   }
-  PrintInfo();
+  SendCanData();
 }
 
 BroadcastPacket GetCanPacket()
@@ -738,46 +735,10 @@ void DetermineTCCLockup()
   analogWrite(TCC_PIN, 0);
 }
 
-void PrintInfo()
+void SendCanData()
 {
-  if (millis() - lastwritetime > 50)
+  if (millis() - lastwritetime > 200)
   {
-    // Serial.print("Data::");
-
-    // Serial.print("Time:");
-    // Serial.print(millis());
-
-    // Serial.print(",epcpwm:");
-    // Serial.print(EPCPWM);
-    // Serial.print(",epcpressuresetpoint:");
-    // Serial.print(EPCSetpoint);
-
-    // Serial.print(",load:");
-    // Serial.print(Load_Avg);
-
-    // Serial.print(",Line:");
-    // Serial.print(LinePressure);
-
-    // Serial.print(",EPC_Press:");
-    // Serial.print(EPCPressure);
-
-    // Serial.print(",ISS_Speed:");
-    // Serial.print(ISS_Avg_Speed);
-
-    // Serial.print(",Slippage:");
-    // Serial.print(trans_Slippage);
-
-    // Serial.print(",tcc:");
-    // Serial.print(enabletcc);
-
-    // Serial.print(",rpm:");
-    // Serial.print(rpmValue);
-
-    // Serial.print(",CurrentGear:");
-    // Serial.print(CurrentGear);
-
-    // Serial.print(",CurrentSpeed:");
-    // Serial.println(OSS_Avg_Speed);
 
     struct can_frame canMsg2;
     canMsg2.can_id = 1702;
@@ -791,8 +752,8 @@ void PrintInfo()
     struct can_frame canMsg3;
     canMsg3.can_id = 1802;
     canMsg3.can_dlc = 8;
-    canMsg3.data[0] = (LinePressure >> 8) & 0xFF;
-    canMsg3.data[1] = LinePressure & 0xFF;
+    canMsg3.data[0] = 0; //empty was line pressure
+    canMsg3.data[1] = 0; //empty was line pressure
 
     canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;;
     canMsg3.data[3] = EPCPressure & 0xFF;;
@@ -831,7 +792,6 @@ void MeasurePressures()
   //.29 is used to convert the 0-5v 0-1024 value signal to 0-300psi
   //.15 for 0-1024 to 0-150psi
   OilPressure = analogRead(OIL_Pressure_PIN) * .15;
-  LinePressure = analogRead(LINE_PRESSURE_PIN) * .29;
   EPCPressure = analogRead(EPC_PRESSURE_PIN) * .29;
 }
 
