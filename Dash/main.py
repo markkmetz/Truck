@@ -104,13 +104,13 @@ def receive_can_messages(values,bus,LastMessageTime):
                     values['Oil'] = canMsg.data[3]
 
 
-                elif canMsg.arbitration_id == 1702:
-                    values['LinePSI'] = (canMsg.data[0] | (canMsg.data[1] << 8))/10
-                    values['EPCPSI'] = (canMsg.data[2] | (canMsg.data[3] << 8))/10
+                elif canMsg.arbitration_id == 1802:
+                    values['LinePSI'] = round(canMsg.data[0] | (canMsg.data[1] << 8))
+                    values['EPCPSI'] = round(canMsg.data[2] | (canMsg.data[3] << 8))
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
-                    values['Fuel'] = canMsg.data[7]
+                    values['Fuel'] = round(canMsg.data[7]/2.55)
 
                 LastMessageTime = datetime.now()        
                     
@@ -156,7 +156,7 @@ def update(meters,values):
         meters['MPH'].amountusedvar.set(values['MPH'])
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
-        label.config(text = values['EPCPSI'])
+        labels['EPCPSI'].config(text = values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
     if meters['EPCPWM']['value'] != values['EPCPWM']:
@@ -411,7 +411,7 @@ if enableDisplay:
     odo = ttk.Text(frame, height=1)
     odo.place(x=650,y=390,width=100)
     odo.tag_configure('right', justify='right')
-    odo.insert('0.0',"347,000")
+    odo.insert('0.0',"347,349")
 
     #-----------------------------------------------------
 
