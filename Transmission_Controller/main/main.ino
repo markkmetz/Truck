@@ -533,7 +533,6 @@ void loop()
     else if (canMsg.can_id == 1520)
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
-      // Serial.println(rpmValue);
     }
   }
   SendCanData();
@@ -545,13 +544,6 @@ BroadcastPacket GetCanPacket()
 
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
   {
-
-    Serial.println(canMsg.can_id);
-    for (int i = 0; i < 100; i++)
-    {
-      Serial.print(",i:");
-      Serial.print(canMsg.data[i]);
-    }
 
     if (canMsg.can_id == 1523)
     {
@@ -649,12 +641,12 @@ void MeasureSpeed()
     OSS_Speed_Count++;
   else
   {
-    for (int i = 0; i < OSS_Smoothing; i++)
-    {
-      Serial.print(OSS_Speeds[i]);
-      Serial.print(",");
-    }
-    Serial.println("");
+    // for (int i = 0; i < OSS_Smoothing; i++)
+    // {
+    //   Serial.print(OSS_Speeds[i]);
+    //   Serial.print(",");
+    // }
+    // Serial.println("");
     OSS_Speed_Count = 0;
   }
 
@@ -709,36 +701,16 @@ void RegulateEPC()
     if (shiftingTimer.isRunning)
     {
       EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-      //EPCPWM = 255 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
-      EPCPWM = 100;
+      EPCPWM = 120 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
     }
     else
     {
       EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
-      EPCPWM = 255 - inGearPID.calculate(EPCSetpoint, EPCPressure);
-      EPCPWM = 80;
+      EPCPWM = 80 - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
-    if (EPCPWM > 255)
-    {
-      EPCPWM = 255;
-      if (loggingenabled)
-      {
-        Serial.print("epc pwm too HIGH setting to 255: ");
-        Serial.println(EPCPWM);
-      }
-    }
-    if (EPCPWM < 0)
-    {
-      EPCPWM = 0;
-      if (loggingenabled)
-      {
-        Serial.print("epc pwm too LOW setting to 0: ");
-        Serial.println(EPCPWM);
-      }
-    }
+      EPCPWM = constrain(EPCPWM, 0,255);
 
-    // Serial.println(EPCSetpoint);
     if (PreviousEPCPWM != EPCPWM)
     {
       analogWrite(EPC_PIN, EPCPWM);
@@ -768,7 +740,6 @@ void SendCanData()
 {
   if (millis() - lastwritetime > 200)
   {
-
     struct can_frame canMsg2;
     canMsg2.can_id = 1702;
     canMsg2.can_dlc = 4;
@@ -785,9 +756,7 @@ void SendCanData()
     canMsg3.data[1] = 0; // empty was line pressure
 
     canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;
-    ;
     canMsg3.data[3] = EPCPressure & 0xFF;
-    ;
 
     canMsg3.data[4] = constrain(EPCPWM, 0, 255);
     canMsg3.data[5] = constrain(EPCSetpoint, 0, 255);
@@ -796,6 +765,43 @@ void SendCanData()
     mcp2515.sendMessage(&canMsg3);
     lastwritetime = millis();
   }
+}
+
+void PrintSerialData()
+{
+    Serial.print("Data::");
+
+    Serial.print("Time:");
+    Serial.print(millis());
+
+    Serial.print(",epcpwm:");
+    Serial.print(EPCPWM);
+    Serial.print(",epcpressuresetpoint:");
+    Serial.print(EPCSetpoint);
+
+    Serial.print(",load:");
+    Serial.print(Load_Avg);
+
+    Serial.print(",EPC_Press:");
+    Serial.print(EPCPressure);
+
+    Serial.print(",ISS_Speed:");
+    Serial.print(ISS_Avg_Speed);
+
+    Serial.print(",Slippage:");
+    Serial.print(trans_Slippage);
+
+    Serial.print(",tcc:");
+    Serial.print(enabletcc);
+
+    Serial.print(",rpm:");
+    Serial.print(rpmValue);
+
+    Serial.print(",CurrentGear:");
+    Serial.print(CurrentGear);
+
+    Serial.print(",CurrentSpeed:");
+    Serial.println(OSS_Avg_Speed);
 }
 
 void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
@@ -827,8 +833,6 @@ void MeasurePressures()
 
 void Shift()
 {
-  Serial.println("Shift()");
-
   // solenoid/clutch apply chart-----
   //  PRN1 1/0
   //  2 0/0
@@ -836,8 +840,8 @@ void Shift()
   //  4 1/1
 
   // clear the pid error and output
-  //inGearPID.clear();
-  //shiftingPID.clear();
+  inGearPID.clear();
+  shiftingPID.clear();
 
   if (CurrentGear - CommandedGear > 1)
   {
@@ -889,28 +893,24 @@ void Shift()
   {
     digitalWrite(SOL_A_Pin, HIGH);
     digitalWrite(SOL_B_Pin, LOW);
-    // Serial.println("here1");
     CurrentGear = 1;
   }
   else if (CommandedGear == 2)
   {
     digitalWrite(SOL_A_Pin, LOW);
     digitalWrite(SOL_B_Pin, LOW);
-    // Serial.println("here2");
     CurrentGear = 2;
   }
   else if (CommandedGear == 3)
   {
     digitalWrite(SOL_A_Pin, LOW);
     digitalWrite(SOL_B_Pin, HIGH);
-    // Serial.println("here3");
     CurrentGear = 3;
   }
   else if (CommandedGear == 4)
   {
     digitalWrite(SOL_A_Pin, HIGH);
     digitalWrite(SOL_B_Pin, HIGH);
-    // Serial.println("here4");
     CurrentGear = 4;
   }
 }
