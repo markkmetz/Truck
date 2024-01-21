@@ -70,11 +70,11 @@ struct Curve
 };
 
 Curve bettercurves[6] = {
-    {FirstUP, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-    {SecondDown, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-    {SecondUp, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
+    {FirstUP, {5, 4, 4, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {SecondDown, {2, 2, 2, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
     {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
-    {ThirdUp, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
+    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
     {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 40, 1}};
 
 class Timer
@@ -163,17 +163,17 @@ class TCCTimer : public Timer
 {
   using Timer::Timer;
 
-  public:
-    int TCCPWM = 0;
-  private:
-    int msStep = 100;
+public:
+  int TCCPWM = 0;
+
+private:
+  int msStep = 100;
 
   void Run()
   {
-    
+
     Timer::Run();
   }
-
 };
 
 class PID
@@ -304,7 +304,7 @@ int cmd = -1;
 
 // Timers
 ShiftingTimer shiftingTimer(Shift);
-//Timer tccTimer(Lockup);
+// Timer tccTimer(Lockup);
 
 bool tccTimer = false;
 bool shifting = false;
@@ -709,7 +709,7 @@ void RegulateEPC()
       EPCPWM = 80 - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
-      EPCPWM = constrain(EPCPWM, 0,255);
+    EPCPWM = constrain(EPCPWM, 0, 255);
 
     if (PreviousEPCPWM != EPCPWM)
     {
@@ -769,39 +769,39 @@ void SendCanData()
 
 void PrintSerialData()
 {
-    Serial.print("Data::");
+  Serial.print("Data::");
 
-    Serial.print("Time:");
-    Serial.print(millis());
+  Serial.print("Time:");
+  Serial.print(millis());
 
-    Serial.print(",epcpwm:");
-    Serial.print(EPCPWM);
-    Serial.print(",epcpressuresetpoint:");
-    Serial.print(EPCSetpoint);
+  Serial.print(",epcpwm:");
+  Serial.print(EPCPWM);
+  Serial.print(",epcpressuresetpoint:");
+  Serial.print(EPCSetpoint);
 
-    Serial.print(",load:");
-    Serial.print(Load_Avg);
+  Serial.print(",load:");
+  Serial.print(Load_Avg);
 
-    Serial.print(",EPC_Press:");
-    Serial.print(EPCPressure);
+  Serial.print(",EPC_Press:");
+  Serial.print(EPCPressure);
 
-    Serial.print(",ISS_Speed:");
-    Serial.print(ISS_Avg_Speed);
+  Serial.print(",ISS_Speed:");
+  Serial.print(ISS_Avg_Speed);
 
-    Serial.print(",Slippage:");
-    Serial.print(trans_Slippage);
+  Serial.print(",Slippage:");
+  Serial.print(trans_Slippage);
 
-    Serial.print(",tcc:");
-    Serial.print(enabletcc);
+  Serial.print(",tcc:");
+  Serial.print(enabletcc);
 
-    Serial.print(",rpm:");
-    Serial.print(rpmValue);
+  Serial.print(",rpm:");
+  Serial.print(rpmValue);
 
-    Serial.print(",CurrentGear:");
-    Serial.print(CurrentGear);
+  Serial.print(",CurrentGear:");
+  Serial.print(CurrentGear);
 
-    Serial.print(",CurrentSpeed:");
-    Serial.println(OSS_Avg_Speed);
+  Serial.print(",CurrentSpeed:");
+  Serial.println(OSS_Avg_Speed);
 }
 
 void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
@@ -824,11 +824,11 @@ void MeasurePressures()
   FuelLevel = analogRead(Fuel_Level_Pin);
   //.367 is used to convert the 0.5-4.5v 0-1024 value signal to 0-300psi
   //.184 for 0-1024 to 0-150psi
-  //102 is the .5v offset
+  // 102 is the .5v offset
   OilPressure = (analogRead(OIL_Pressure_PIN) - 102) * 0.184;
   EPCPressure = (analogRead(EPC_PRESSURE_PIN) - 102) * 0.367;
-  EPCPressure = constrain(EPCPressure,0,300);
-  OilPressure = constrain(OilPressure,0,150);
+  EPCPressure = constrain(EPCPressure, 0, 300);
+  OilPressure = constrain(OilPressure, 0, 150);
 }
 
 void Shift()
@@ -951,8 +951,7 @@ int CalculateGear()
 
   if (CurrentGear == 1)
   {
-
-    if (rpmValue > 1700 || rpmValue == 0 || OSS_Avg_Speed > 5)
+    if (OSS_Avg_Speed > (CalcShiftValue(FirstUP, Load_Avg)))
     {
       shiftingTimer.start(500, bettercurves[FirstUP]);
       return 2;
@@ -969,7 +968,7 @@ int CalculateGear()
       shiftingTimer.start(500, bettercurves[SecondUp]);
       return 3;
     }
-    else if (rpmValue != 0 && rpmValue < 1400 && OSS_Avg_Speed < 2)
+    else if (OSS_Avg_Speed < (CalcShiftValue(SecondDown, Load_Avg)))
     {
       shiftingTimer.start(500, bettercurves[SecondDown]);
       return 1;
