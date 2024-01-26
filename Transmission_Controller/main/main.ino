@@ -91,6 +91,10 @@ public:
     this->timerLength = length;
   }
 
+  Timer(int length = 0){
+    this->timerLength = length;
+  }
+
   unsigned long timerLastStart;
   unsigned long timerLastStop;
   bool isRunning;
@@ -142,6 +146,11 @@ public:
         this->callback();
       }
     }
+  }
+
+  void Restart(){
+    this->stop();
+    this->start(this->timerLength);
   }
 };
 
@@ -258,7 +267,7 @@ const double GearRatio = 4.56;
 const double TireSize = 33;
 
 const int ISS_Smoothing = 10;
-const int OSS_Smoothing = 20;
+const int OSS_Smoothing = 50;
 
 // Variables
 bool Load_Change = false; // not used except for testing? TODO
@@ -304,6 +313,7 @@ int cmd = -1;
 
 // Timers
 ShiftingTimer shiftingTimer(Shift);
+Timer postShiftTimer(4000);
 // Timer tccTimer(Lockup);
 
 bool tccTimer = false;
@@ -344,7 +354,7 @@ void loop()
 {
   // run the timers
   shiftingTimer.Run();
-
+  postShiftTimer.Run();
   cmd = Serial.read();
   MeasurePressures();
 
@@ -813,7 +823,7 @@ void splitIntoTwoBytes(int value, byte &byte1, byte &byte2)
 
 void CheckShift()
 {
-  if (!shiftingTimer.isRunning)
+  if (!shiftingTimer.isRunning && !postShiftTimer.isRunning)
   {
     CommandedGear = CalculateGear();
   }
@@ -913,6 +923,7 @@ void Shift()
     digitalWrite(SOL_B_Pin, HIGH);
     CurrentGear = 4;
   }
+  postShiftTimer.start(4000);
 }
 
 int CalculateGear()
