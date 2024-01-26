@@ -261,7 +261,7 @@ const int SOL_B_Pin = 3;
 const int EPC_PIN = 5; // make sure this is an analog pin
 
 // Constants
-const int OSS_Holes = 12;
+const int OSS_Holes = 2;
 const int ISS_Holes = 12;
 const double GearRatio = 4.56;
 const double TireSize = 33;
@@ -313,7 +313,7 @@ int cmd = -1;
 
 // Timers
 ShiftingTimer shiftingTimer(Shift);
-Timer postShiftTimer(4000);
+Timer postShiftTimer(2000);
 // Timer tccTimer(Lockup);
 
 bool tccTimer = false;
@@ -546,6 +546,8 @@ void loop()
     }
   }
   SendCanData();
+
+  PrintSerialData();
 }
 
 BroadcastPacket GetCanPacket()
