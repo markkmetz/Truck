@@ -48,14 +48,14 @@ def CalculateGear(oss_avg_speed,load_avg,rpm_value):
         return 0
 
 # Load the CSV file
-df = pd.read_csv('Tools\\v12.02.23_successfultestdrive_2023-12-02_20-52-22.csv')
+df = pd.read_csv('arduino_data_2023-12-03_12-27-47 copy.csv')
 # Add the first three columns together to create a fourth column
 #load,rpm,Speed,Gear
 
-df['avgspeed'] = df['Speed'].rolling(window=5).mean()
+df['avgspeed'] = df['CurrentSpeed'].rolling(window=5).mean()
 gear = []        
 for index, row in df.iterrows():
-    current_gear = CalculateGear(row['avgspeed'],row['load'],row['rpm'])
+    current_gear = CalculateGear(row['CurrentSpeed'],row['load'],row['rpm'])
     gear.append(current_gear*10)
     
 
@@ -65,7 +65,9 @@ df['Gear'] = gear
 # # Plot all four columns
 plt.figure(figsize=(10, 6))
 plt.plot(df['Gear'], label='Gear')
-plt.plot(df['avgspeed'], label='avgspeed')
+plt.plot(df['CurrentGear'], label='CurrentGear')
+
+plt.plot(df['CurrentSpeed'], label='CurrentSpeed')
 plt.plot(df['load'], label='load')
 
 

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 import numpy as np
 filename = 'Transmission_Controller/main/main.ino'
-line_number =108
+line_number =72
 fig, ax = plt.subplots()
 l = 0
 index = 0
@@ -32,11 +32,12 @@ with open(filename, 'r') as file:
 # Parse the data
 data = {}
 datalines = []
+epcdata = []
 for line in lines:
     parts = line.split("{")
     name = parts[1].replace(",","")
     values = parts[2].split("}")[0].split(",")
-
+    epcdata.append("}, {" + parts[3])
     for i,txt in enumerate(values):
         values[i] = int(txt.replace(" ", "")) # type: ignore
     
@@ -66,15 +67,14 @@ def printnewstuff():
         for x in data[cname]:
             str2 += str(x) + ", "
         str2 = str2[0:-2]
-        str3 = "}, 0, 1}"
-        if i !=5:
-            str3 += ","
+        str3 = ""#"}, 0, 1}"
+
+        
 
         print(str1 + str2 + str3)
         arr.append(str1 + str2 + str3)
     print()
     return arr
-
 
 def up(event):
     global index
@@ -130,9 +130,10 @@ def save(event):
     arr = printnewstuff()
     with open(filename, 'r') as file:
         lines = file.readlines()
+
         for i in range(6):
-            lines[line_number + i] = arr[i] + "\n"
-        lines[line_number + 6] = "};\n"
+            lines[line_number + i] = arr[i] + epcdata[i]
+        #lines[line_number + 6] = "};\n"
 
     with open(filename, 'w') as file:
         file.writelines(lines)
