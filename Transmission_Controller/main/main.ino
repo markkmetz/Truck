@@ -70,8 +70,8 @@ struct Curve
 };
 
 Curve bettercurves[6] = {
-    {FirstUP, {5, 4, 4, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-    {SecondDown, {2, 2, 2, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {FirstUP, {3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
+    {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
     {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
     {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
     {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
@@ -91,7 +91,8 @@ public:
     this->timerLength = length;
   }
 
-  Timer(int length = 0){
+  Timer(int length = 0)
+  {
     this->timerLength = length;
   }
 
@@ -148,7 +149,8 @@ public:
     }
   }
 
-  void Restart(){
+  void Restart()
+  {
     this->stop();
     this->start(this->timerLength);
   }
@@ -280,8 +282,8 @@ int rpmValue;
 
 int ISS[ISS_Smoothing];
 int OSS[OSS_Smoothing];
-double OSS_Speeds[OSS_Smoothing];
-double ISS_Speeds[OSS_Smoothing];
+int OSS_Speeds[OSS_Smoothing];
+double ISS_Speeds[ISS_Smoothing];
 double OSS_Avg_Speed;
 double ISS_Avg_Speed;
 int OSS_Speed_Count = 0;
@@ -373,6 +375,8 @@ void loop()
   RegulateEPC();
 
   CheckShift();
+
+  TCCLockup();
 
   if (cmd == 109) // m --toggle mode
     manualmode = !manualmode;
@@ -633,7 +637,7 @@ BroadcastPacket GetCanPacket()
 void MeasureSpeed()
 {
   unsigned long duration = pulseIn(OSS_Pin, HIGH);
-  double s;
+  int s;
   if (duration > 0)
   {
     float frequency = 1000000.0 / (1.0 * duration);
@@ -730,21 +734,22 @@ void RegulateEPC()
   }
 }
 
-void CalculateTCCLockup()
+void TCCLockup()
 {
-  if (shiftingTimer.isRunning)
+  if (shiftingTimer.isRunning || postShiftTimer.isRunning)
   {
     enabletcc = false;
-    return;
-  }
-
-  if (CurrentGear == 4 && OSS_Avg_Speed > 50)
-  {
-    enabletcc = true;
   }
   else
   {
-    enabletcc = false;
+    if (CurrentGear == 4 && OSS_Avg_Speed > 50)
+    {
+      enabletcc = true;
+    }
+    else
+    {
+      enabletcc = false;
+    }
   }
 }
 
@@ -1060,9 +1065,9 @@ double getDoubleAverage(double arr[], int size)
   return avg;
 }
 
-double getDoubleAverageWithoutExtremeValues(double arr[], int size)
+double getDoubleAverageWithoutExtremeValues(int arr[], int size)
 {
-  double sum = 0;
+  int sum = 0;
   for (int i = 0; i < size; ++i)
   {
     sum += arr[i];
