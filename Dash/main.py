@@ -163,7 +163,11 @@ def update(meters,values):
         meters['EPCPWM']['value'] = values['EPCPWM']
     if meters['Gear'].amountusedvar.get() != values['Gear']:
         meters['Gear'].amountusedvar.set(values['Gear'])
-    meters['TCC'].variable = values['TCC']
+        labels['Gear'].config(text = values['Gear'])
+    
+    if values['TCC'] != meters['TCC'].get():
+        meters['TCC'].invoke()
+
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
     if meters['Oil'].amountusedvar.get() != values['Oil']:

@@ -543,9 +543,8 @@ void loop()
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
     }
-    else if (canMsg.can_id == 1601)
+    else if (canMsg.can_id == 1601 && !shiftingTimer.isRunning && !postShiftTimer.isRunning)
     {
-      Serial.println(("asdf"));
       manualmode = 1;
       if (canMsg.data[3])
       { // accel pin
@@ -556,12 +555,6 @@ void loop()
           CommandedGear = 4;
         }
 
-        // FirstUP = 0,
-        // SecondDown = 1,
-        // SecondUp = 2,
-        // ThirdDown = 3,
-        // ThirdUp = 4,
-        // FourthDown = 5
         switch (CommandedGear)
         {
         case 2:
@@ -588,11 +581,11 @@ void loop()
         {
           CommandedGear = 1;
         }
-                  Serial.println(CommandedGear);
+
         switch (CommandedGear)
         {
         case 1:
-          // 2->1 
+          // 2->1
           shiftingTimer.start(500, bettercurves[SecondDown]);
           break;
         case 2:
@@ -601,7 +594,6 @@ void loop()
           break;
         case 3:
           // 4->3
-
           shiftingTimer.start(500, bettercurves[FourthDown]);
           break;
         default:
@@ -632,11 +624,7 @@ void loop()
       canMsg1.data[0] = CommandedGear;
       canMsg1.data[1] = enabletcc;
       mcp2515.sendMessage(&canMsg1);
-    }else{
-      Serial.println(("asdf2"));
-    
     }
-  
   }
   SendCanData();
 
@@ -704,7 +692,7 @@ BroadcastPacket GetCanPacket()
         switch (CommandedGear)
         {
         case 1:
-          // 2->1 
+          // 2->1
           shiftingTimer.start(500, bettercurves[SecondDown]);
           break;
         case 2:
@@ -750,9 +738,10 @@ BroadcastPacket GetCanPacket()
 
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
       Serial.println(canMsg.data[0]);
-    }else{
+    }
+    else
+    {
       Serial.println(("asdf2"));
-    
     }
   }
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
@@ -881,6 +870,7 @@ void TCCLockup()
       enabletcc = false;
     }
   }
+  digitalWrite(TCC_PIN, enabletcc);
 }
 
 void SendCanData()
