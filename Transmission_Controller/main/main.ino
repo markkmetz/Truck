@@ -74,7 +74,7 @@ Curve bettercurves[6] = {
     {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
     {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
     {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
-    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
+    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 41, 50, 65, 75, 83, 90, 100}, 40, 1},
     {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 40, 1}};
 
 class Timer
@@ -357,26 +357,14 @@ void loop()
   // run the timers
   shiftingTimer.Run();
   postShiftTimer.Run();
-  cmd = Serial.read();
+
   MeasurePressures();
 
   MeasureSpeed();
 
-  // if (OSS_Avg_Speed > 30)
-  // {
-  //   MeasureISS();
-  //   trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
-  // }
-  // else
-  // {
-  //   trans_Slippage = 0;
-  // }
-
   RegulateEPC();
 
-  CheckShift();
-
-  TCCLockup();
+  cmd = Serial.read();
 
   if (cmd == 109) // m --toggle mode
     manualmode = !manualmode;
@@ -534,6 +522,13 @@ void loop()
     }
     cmd = -1;
   }
+  else
+  {
+
+    CheckShift();
+
+    TCCLockup();
+  }
 
   // TODO break this out into a function. inside getcanpacket it does global var stuff
   // BroadcastPacket lol = GetCanPacket();
@@ -567,10 +562,8 @@ BroadcastPacket GetCanPacket()
       Load_Avg = canMsg.data[1] | canMsg.data[0] << 8;
       Load_Avg = Load_Avg / 10;
     }
-    // Serial.println(canMsg.can_id);
     else if (canMsg.can_id == 1601)
     {
-      Serial.println(canMsg.can_id);
       manualmode = 1;
       if (canMsg.data[3])
       { // accel pin
@@ -580,7 +573,30 @@ BroadcastPacket GetCanPacket()
         {
           CommandedGear = 4;
         }
-        Shift();
+
+        // FirstUP = 0,
+        // SecondDown = 1,
+        // SecondUp = 2,
+        // ThirdDown = 3,
+        // ThirdUp = 4,
+        // FourthDown = 5
+        switch (CommandedGear)
+        {
+        case 2:
+          // 1->2 FirstUP = 0,
+          shiftingTimer.start(500, bettercurves[FirstUP]);
+          break;
+        case 3:
+          // 2->3 SecondUp = 2,
+          shiftingTimer.start(500, bettercurves[SecondUp]);
+          break;
+        case 4:
+          // 3->4 ThirdUp = 4,
+          shiftingTimer.start(500, bettercurves[ThirdUp]);
+          break;
+        default:
+          break;
+        }
       }
       else if (canMsg.data[2])
       { // coast
@@ -590,17 +606,33 @@ BroadcastPacket GetCanPacket()
         {
           CommandedGear = 1;
         }
-        Shift();
+        switch (CommandedGear)
+        {
+        case 1:
+          // 2->1 
+          shiftingTimer.start(500, bettercurves[SecondDown]);
+          break;
+        case 2:
+          // 3->2
+          shiftingTimer.start(500, bettercurves[ThirdDown]);
+          break;
+        case 3:
+          // 4->3
+          shiftingTimer.start(500, bettercurves[FourthDown]);
+          break;
+        default:
+          break;
+        }
       }
       else if (canMsg.data[0])
       { // off
         Serial.println("OFF detected!!");
-        EPCSetpoint = EPCSetpoint - 10;
+        manualmode = 1;
       }
       else if (canMsg.data[1])
       { // on
         Serial.println("ON detected!!");
-        EPCSetpoint = EPCSetpoint + 10;
+        manualmode = 0;
       }
       else if (canMsg.data[4])
       { // TCC
@@ -721,7 +753,7 @@ void RegulateEPC()
     }
     else
     {
-      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
+      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
       EPCPWM = 80 - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
