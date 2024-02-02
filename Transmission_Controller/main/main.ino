@@ -543,6 +543,100 @@ void loop()
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
     }
+    else if (canMsg.can_id == 1601)
+    {
+      Serial.println(("asdf"));
+      manualmode = 1;
+      if (canMsg.data[3])
+      { // accel pin
+        Serial.println("ACCEL detected!!");
+        CommandedGear = CurrentGear + 1;
+        if (CommandedGear = 5)
+        {
+          CommandedGear = 4;
+        }
+
+        // FirstUP = 0,
+        // SecondDown = 1,
+        // SecondUp = 2,
+        // ThirdDown = 3,
+        // ThirdUp = 4,
+        // FourthDown = 5
+        switch (CommandedGear)
+        {
+        case 2:
+          // 1->2 FirstUP = 0,
+          shiftingTimer.start(500, bettercurves[FirstUP]);
+          break;
+        case 3:
+          // 2->3 SecondUp = 2,
+          shiftingTimer.start(500, bettercurves[SecondUp]);
+          break;
+        case 4:
+          // 3->4 ThirdUp = 4,
+          shiftingTimer.start(500, bettercurves[ThirdUp]);
+          break;
+        default:
+          break;
+        }
+      }
+      else if (canMsg.data[2])
+      { // coast
+        Serial.println("COAST detected!!");
+        CommandedGear = CurrentGear - 1;
+        if (CommandedGear == 0)
+        {
+          CommandedGear = 1;
+        }
+                  Serial.println(CommandedGear);
+        switch (CommandedGear)
+        {
+        case 1:
+          // 2->1 
+          shiftingTimer.start(500, bettercurves[SecondDown]);
+          break;
+        case 2:
+          // 3->2
+          shiftingTimer.start(500, bettercurves[ThirdDown]);
+          break;
+        case 3:
+          // 4->3
+
+          shiftingTimer.start(500, bettercurves[FourthDown]);
+          break;
+        default:
+          break;
+        }
+      }
+      else if (canMsg.data[0])
+      { // off
+        Serial.println("OFF detected!!");
+        manualmode = 1;
+      }
+      else if (canMsg.data[1])
+      { // on
+        Serial.println("ON detected!!");
+        manualmode = 0;
+      }
+      else if (canMsg.data[4])
+      { // TCC
+        Serial.println("RES detected!!");
+        enabletcc = !enabletcc;
+
+        digitalWrite(TCC_PIN, enabletcc);
+      }
+
+      // send message
+      canMsg1.can_id = 1602;
+      canMsg1.can_dlc = 2;
+      canMsg1.data[0] = CommandedGear;
+      canMsg1.data[1] = enabletcc;
+      mcp2515.sendMessage(&canMsg1);
+    }else{
+      Serial.println(("asdf2"));
+    
+    }
+  
   }
   SendCanData();
 
@@ -564,6 +658,7 @@ BroadcastPacket GetCanPacket()
     }
     else if (canMsg.can_id == 1601)
     {
+      Serial.println(("asdf"));
       manualmode = 1;
       if (canMsg.data[3])
       { // accel pin
@@ -655,6 +750,9 @@ BroadcastPacket GetCanPacket()
 
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
       Serial.println(canMsg.data[0]);
+    }else{
+      Serial.println(("asdf2"));
+    
     }
   }
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
@@ -962,7 +1060,7 @@ void Shift()
     digitalWrite(SOL_B_Pin, HIGH);
     CurrentGear = 4;
   }
-  postShiftTimer.start(4000);
+  postShiftTimer.start(1000);
 }
 
 int CalculateGear()
