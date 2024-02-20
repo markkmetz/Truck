@@ -628,7 +628,7 @@ void loop()
   }
   SendCanData();
 
-  PrintSerialData();
+  //PrintSerialData();
 }
 
 BroadcastPacket GetCanPacket()

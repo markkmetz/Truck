@@ -13,6 +13,9 @@ import threading
 from datetime import datetime
 import numpy as np
 import os
+from queue import Queue
+import csv
+
 
 os_type = platform.system()
 bus = None
@@ -41,8 +44,6 @@ small_font = ttk.font.Font(size=8)
 
 
 values = {
-'Time':[],
-'rpmtest': [0 for _ in range(40)],
 'RPM' : 0,
 'Bar': 0,
 'MAP':0,
@@ -64,6 +65,8 @@ labels = {}
 t1 = None
 t2 = None
 LastMessageTime = datetime.now()
+logfilename = datetime.now().strftime("%m%d%y_%H%M")
+logfilename = logfilename + ".csv"
 
 def screen_off():
     os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
@@ -71,7 +74,11 @@ def screen_off():
 def screen_on():
     os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
 
-def receive_can_messages(values,bus,LastMessageTime):
+def replace_text(text_widget, new_text):
+    text_widget.delete('1.0', ttk.END)
+    text_widget.insert('1.0', new_text)
+
+def receive_can_messages(values,bus,LastMessageTime,out_q):
     global count
 
     while True:
@@ -111,6 +118,12 @@ def receive_can_messages(values,bus,LastMessageTime):
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = round(canMsg.data[7]/2.55)
+                    #update the chart?
+                    meters['cnv'].draw()
+
+                #steeringwheel
+                elif canMsg.arbitration_id == 1601:
+                    replace_text(meters['Log'], "Manual shift detected")
 
                 LastMessageTime = datetime.now()        
                     
@@ -122,6 +135,8 @@ def receive_can_messages(values,bus,LastMessageTime):
                     print(s)
                     print("")
 
+                out_q.put(values)
+
             else:
                 if (LastMessageTime - datetime.now()).total_seconds() >3:
                     print("Timeout...")
@@ -132,10 +147,9 @@ def receive_can_messages(values,bus,LastMessageTime):
             count += 1
             time.sleep(.05)
             values['RPM'] = count
-            values['rpmtest'].append(count)
-            values['rpmtest'] = values['rpmtest'][1:]
-            meters['epc_plt'].set_ydata(values['rpmtest'])
             meters['cnv'].draw()
+            out_q.put(values)
+            
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
@@ -157,6 +171,7 @@ def update(meters,values):
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
         labels['EPCPSI'].config(text = values['EPCPSI'])
+        meters['epc_plt'].set_ydata(values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
     if meters['EPCPWM']['value'] != values['EPCPWM']:
@@ -165,7 +180,7 @@ def update(meters,values):
         meters['Gear'].amountusedvar.set(values['Gear'])
         labels['Gear'].config(text = values['Gear'])
     
-    if values['TCC'] != meters['TCC'].get():
+    if values['TCC'] != meters['TCC']['value']:
         meters['TCC'].invoke()
 
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
@@ -175,6 +190,20 @@ def update(meters,values):
 
     app.after(10,update,meters,values)  
 
+def logdata(in_q):
+    fieldnames = values.keys()
+    with open(logfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if csvfile.tell() == 0:
+            writer.writeheader()
+        while True:
+            time.sleep(0.05)
+            if in_q.qsize() > 0:
+                data = in_q.get()
+                fieldnames = data.keys()
+                writer.writerow(data)
+                csvfile.flush()
+                q.task_done()
 
 if enableDisplay:
     #region meters
@@ -246,9 +275,8 @@ if enableDisplay:
     # line, = ax.plot(values[''])    
     # meters['epc_plt'] = line
 
-    line, = ax.plot(values['rpmtest'])    
+    line, = ax.plot(values['EPCPSI'])    
     meters['epc_plt'] = line
-
     
 
     # Add the second line
@@ -411,25 +439,38 @@ if enableDisplay:
     text_box = ttk.Text(frame, height=2)
     text_box.place(x=0,y=460,relwidth=1)
     text_box.insert('1.0',"Initialized.. Connecting to CAN...")
+    meters['Log'] = text_box
 
     odo = ttk.Text(frame, height=1)
     odo.place(x=650,y=390,width=100)
     odo.tag_configure('right', justify='right')
     odo.insert('0.0',"347,349")
+    meters['Odo'] = odo
+
+    trip = ttk.Text(frame, height=1)
+    trip.place(x=650,y=360,width=100)
+    trip.tag_configure('right', justify='right')
+    trip.insert('0.0',"0")
+    meters['Trip'] = trip
 
     #-----------------------------------------------------
 
     #endregion
-
-
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
+    q = Queue()
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime,q))
     recv_thread.start()
+
+    log_thread = threading.Thread(target=logdata, args=(q,))
+    log_thread.start()
+
     update(meters,values)
     app.mainloop()
 else:
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
-    recv_thread.start()
+    q = Queue()
     print("started!")
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime,q))
+    recv_thread.start()
+    
     while True:
         #print("this")
         time.sleep(.1)
