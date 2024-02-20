@@ -68,6 +68,12 @@ LastMessageTime = datetime.now()
 logfilename = datetime.now().strftime("%m%d%y_%H%M")
 logfilename = logfilename + ".csv"
 
+def toggle_led(led):
+    if led.cget("bg") == "gray":
+        led.config(bg="green")
+    else:
+        led.config(bg="gray")
+
 def screen_off():
     os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
 
@@ -147,6 +153,12 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
             count += 1
             time.sleep(.05)
             values['RPM'] = count
+            if values['TCC'] == 1:
+                values['TCC'] = 0
+            else:
+                values['TCC'] = 1
+                
+
             meters['cnv'].draw()
             out_q.put(values)
             
@@ -180,8 +192,10 @@ def update(meters,values):
         meters['Gear'].amountusedvar.set(values['Gear'])
         labels['Gear'].config(text = values['Gear'])
     
-    if values['TCC'] != meters['TCC']['value']:
-        meters['TCC'].invoke()
+    if values['TCC'] == 1:
+        meters['TCC'].config(bg="green")
+    else:
+        meters['TCC'].config(bg="gray")
 
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
@@ -426,9 +440,14 @@ if enableDisplay:
     #-----------------------------------------------------
     #   TCC indicator
 
-    tcc = ttk.Radiobutton(frame, style="info",text="TCC")
+    
+    tcc = ttk.Canvas(app, width=10, height=10, bg="gray", highlightthickness=0)
     tcc.place(x=1830,y=265)
     meters['TCC'] = tcc
+
+    # tcc = ttk.Radiobutton(frame, style="info",text="TCC")
+    # tcc
+    # meters['TCC'] = tcc
 
     # checkengine = ttk.Radiobutton(frame, style="warning",text="Check Engine")
     # checkengine.place(x=500,y=10)
