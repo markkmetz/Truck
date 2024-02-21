@@ -119,13 +119,13 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
 
                 elif canMsg.arbitration_id == 1802:
                     values['LinePSI'] = round(canMsg.data[0] | (canMsg.data[1] << 8))
-                    values['EPCPSI'] = round(canMsg.data[2] | (canMsg.data[3] << 8))
+                    values['EPCPSI'] = round(canMsg.data[3] | (canMsg.data[2] << 8))
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = round(canMsg.data[7]/2.55)
                     #update the chart?
-                    meters['cnv'].draw()
+                    #meters['cnv'].draw()
 
                 #steeringwheel
                 elif canMsg.arbitration_id == 1601:
@@ -183,7 +183,7 @@ def update(meters,values):
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
         labels['EPCPSI'].config(text = values['EPCPSI'])
-        meters['epc_plt'].set_ydata(values['EPCPSI'])
+        #meters['epc_plt'].set_ydata(values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
     if meters['EPCPWM']['value'] != values['EPCPWM']:
@@ -426,15 +426,15 @@ if enableDisplay:
     label.place(x=1840, y=210 + 90)
     labels['Gear'] = label
 
-    label = ttk.Label(frame, text="Gear", font=med_font)
-    label.place(x=1830, y=210 + 140)
+    label2 = ttk.Label(frame, text="Gear", font=med_font)
+    label2.place(x=1830, y=210 + 140)
 
     progressbar = ttk.Progressbar(frame, value=0, orient='vertical',length=170)
     progressbar.place(x=1890,y=210 + 8,width=20)
     meters['TPS'] = progressbar
 
-    label = ttk.Label(frame, text="Load", font=small_font)
-    label.place(x=1885, y=210+ 180)
+    label3 = ttk.Label(frame, text="Load", font=small_font)
+    label3.place(x=1885, y=210+ 180)
 
 
     #-----------------------------------------------------
