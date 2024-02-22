@@ -129,7 +129,11 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
 
                 #steeringwheel
                 elif canMsg.arbitration_id == 1601:
-                    replace_text(meters['Log'], "Manual shift detected")
+                    txt = "Manual shift detected: "
+                    for x in range(5):
+                        txt = txt + canMsg.data[x] + ", "
+                    replace_text(meters['Log'], txt)
+
 
                 LastMessageTime = datetime.now()        
                     
@@ -145,7 +149,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
 
             else:
                 if (LastMessageTime - datetime.now()).total_seconds() >3:
-                    print("Timeout...")
+                    replace_text(meters['Log'], "Timeout")
                     screen_off()
                     time.sleep(15)
 
