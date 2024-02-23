@@ -52,7 +52,7 @@ values = {
 'Voltage':0,
 'MPH' : 0,
 'EPCPSI' : 0,
-'LinePSI' : 0,
+'controlslocked' : 0,
 'EPCPWM':0,
 'Gear' : 0,
 'TCC' : 0,
@@ -118,7 +118,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
 
 
                 elif canMsg.arbitration_id == 1802:
-                    values['LinePSI'] = round(canMsg.data[0] | (canMsg.data[1] << 8))
+                    values['controlslocked'] = canMsg.data[0]
                     values['EPCPSI'] = round(canMsg.data[3] | (canMsg.data[2] << 8))
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
@@ -131,7 +131,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                 elif canMsg.arbitration_id == 1601:
                     txt = "Manual shift detected: "
                     for x in range(5):
-                        txt = txt + canMsg.data[x] + ", "
+                        txt = txt + str(canMsg.data[x]) + ", "
                     replace_text(meters['Log'], txt)
 
 
@@ -200,6 +200,11 @@ def update(meters,values):
         meters['TCC'].config(bg="green")
     else:
         meters['TCC'].config(bg="gray")
+
+    if values['controlslocked'] == 1:
+        meters['controlslocked'].config(bg="green")
+    else:
+        meters['controlslocked'].config(bg="gray")
 
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
@@ -448,6 +453,10 @@ if enableDisplay:
     tcc = ttk.Canvas(app, width=10, height=10, bg="gray", highlightthickness=0)
     tcc.place(x=1830,y=265)
     meters['TCC'] = tcc
+
+    locked = ttk.Canvas(app, width=50, height=50, bg="gray", highlightthickness=0)
+    locked.place(x=1600,y=265)
+    meters['controlslocked'] = locked
 
     # tcc = ttk.Radiobutton(frame, style="info",text="TCC")
     # tcc
