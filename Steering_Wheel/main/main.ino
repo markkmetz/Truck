@@ -17,8 +17,10 @@
 //#include <ACAN_ESP32.h>
 #include <core_version.h>
 const String version = "10.28.23.1";
-const int debouncetime = 1000;
+const int debouncetime = 250;
 long timenow;
+int CurrentGear = 0;
+bool tcc = false;
 
 #define LED_PIN_R 32
 #define LED_PIN_G 33
@@ -68,6 +70,16 @@ void writeled(int r = 0, int g = 0, int b = 0) {
   analogWrite(LED_PIN_B, b);
 }
 
+void blink(int numtimes, int r = 0, int g = 0, int b = 200) {
+  //blue by default
+  for(int i = 0; i < numtimes; i++){
+  writeled(200, 200, 200); //white
+  delay(150);
+  writeled(r, g, b);
+    delay(150);
+  }
+
+}
 buttonpresses bp = {};
 
 void setup() {
@@ -99,10 +111,10 @@ void setup() {
 
 void loop() {
 
+
   bp.update();
   writeled(200, 200, 200);
   if (bp.pressed()) {
-
 
     CANMessage frame;
     frame.id = 1601;
@@ -118,9 +130,38 @@ void loop() {
       Serial.println("SEnt?");
     }
 
+    if ((CurrentGear == 1 && !bp.Coast) || CurrentGear == 4 && !bp.Accel) {
+      //blink
+      blink(5);
+    }
+
+    if(!bp.Res && !tcc){
+      //tcc is now on
+      blink(2,0,200,0);
+    }
+    else if(!bp.Res && tcc){
+      //tcc is now off
+      blink(2,0,0,200);
+    }
+
   } else {
     writeled(0, 0, 200);
   }
 
+  CANMessage frame;
+  if (ACAN_ESP32::can.receive(frame)) {
+    Serial.println(frame.id);
+    if (frame.id = 1602) {
+      Serial.println("Received");
+      CurrentGear = frame.data[0];
+      tcc = frame.data[1];
+
+      Serial.println(frame.data[0]);
+      Serial.println(frame.data[1]);
+    }
+  }
+
   delay(50);  //needed???
 }
+
+

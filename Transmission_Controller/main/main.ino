@@ -459,7 +459,7 @@ void loop()
       else if (canMsg.data[1])
       { // on
         Serial.println("ON detected!!");
-        manualmode = 1;
+        controlslocked = 1;
       }
       else if (canMsg.data[4] && !controlslocked)
       { // TCC
