@@ -15,7 +15,7 @@ import numpy as np
 import os
 
 os_type = platform.system()
-bus = None
+bus = Nonedf cxcv
 count = 0
 
 if os_type == "Linux":
@@ -34,7 +34,7 @@ style = ttk.Style(theme='darkly')
 #app.attributes('-fullscreen', True)
 frame = ttk.Frame(app, width=1920, height=515)
 frame.pack()
-large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
+        large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
 xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
 med_font = ttk.font.Font(size=15)
 small_font = ttk.font.Font(size=8)
