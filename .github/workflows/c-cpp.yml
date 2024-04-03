@@ -9,4 +9,4 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
     - name: Compile Sketch
-      run: arduino-cli compile --fqbn "arduino:avr" "Transmission_Controller/main/main.ino"
+      run: arduino-cli compile --fqbn "arduino:avr:mega" "Transmission_Controller/main/main.ino"
