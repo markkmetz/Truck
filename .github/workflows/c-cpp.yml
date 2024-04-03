@@ -5,11 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Arduino CLI
-      uses: arduino/setup-arduino-cli@latest
+      uses: arduino/setup-arduino-cli@v1
+    - name: Install platform
+      run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
     - name: Check out code
-      uses: actions/checkout@latest
-    - name: Compile Arduino Sketch
-      uses: arduino/compile-sketches@latest
-      with:
-        fqbn: arduino:avr:mega
-        sketch-names: 'Transmission_Controller/main/main.ino'
+      uses: actions/checkout@v4
+    - name: get libraries
+      run: arduino-cli lib install "autowp-mcp2515"
+    - name: Compile Sketch
+      run: arduino-cli compile --fqbn "arduino:avr:mega" "Transmission_Controller/main/main.ino"
