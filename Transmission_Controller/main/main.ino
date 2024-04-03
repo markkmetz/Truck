@@ -60,6 +60,15 @@ enum CurveName
   FourthDown = 5
 };
 
+enum ShiftMode
+{
+  Manual = 0,
+  ManualTow = 1,
+  Auto = 2,
+  Performance = 3,
+  RPMBased = 4
+};
+
 struct Curve
 {
   CurveName curvename;
@@ -309,8 +318,8 @@ unsigned long Shift_Current_Millis;
 bool enableEPC = true;
 bool enabletcc = false;
 bool enabletestshifting = false;
-bool manualmode = 1;
-bool controlslocked = 0;
+int ShiftMode = Manual;
+
 bool loggingenabled = 1;
 int cmd = -1;
 
@@ -368,9 +377,9 @@ void loop()
   cmd = Serial.read();
 
   if (cmd == 109) // m --toggle mode
-    manualmode = !manualmode;
+    ShiftMode = Manual;
 
-  if (manualmode)
+  if (ShiftMode == Manual)
   {
     ManualMode();
   }
@@ -396,8 +405,8 @@ void loop()
     }
     else if (canMsg.can_id == 1601 && !shiftingTimer.isRunning && !postShiftTimer.isRunning)
     {
-      manualmode = 1;
-      if (canMsg.data[3] && !controlslocked)
+      ShiftMode = Manual;
+      if (canMsg.data[3])
       { // accel pin
         Serial.println("ACCEL detected!!");
         CommandedGear = CurrentGear + 1;
@@ -424,7 +433,7 @@ void loop()
           break;
         }
       }
-      else if (canMsg.data[2] && !controlslocked)
+      else if (canMsg.data[2])
       { // coast
         Serial.println("COAST detected!!");
         CommandedGear = CurrentGear - 1;
@@ -454,14 +463,12 @@ void loop()
       else if (canMsg.data[0])
       { // off
         Serial.println("OFF detected!!");
-        controlslocked = 0;
       }
       else if (canMsg.data[1])
       { // on
         Serial.println("ON detected!!");
-        controlslocked = 1;
       }
-      else if (canMsg.data[4] && !controlslocked)
+      else if (canMsg.data[4])
       { // TCC
         Serial.println("RES detected!!");
         enabletcc = !enabletcc;
@@ -618,7 +625,7 @@ void SendCanData()
     struct can_frame canMsg3;
     canMsg3.can_id = 1802;
     canMsg3.can_dlc = 8;
-    canMsg3.data[0] = controlslocked;
+    canMsg3.data[0] = ShiftMode;
     canMsg3.data[1] = 0; // empty was line pressure
 
     canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;
@@ -687,7 +694,9 @@ void CheckShift()
 
 void MeasurePressures()
 {
-  FuelLevel = analogRead(Fuel_Level_Pin);
+  // scale is based off of 635 = full and 573 = full-3.73 gallons (87%)
+  FuelLevel = (analogRead(Fuel_Level_Pin) * 0.209) - 32.45;
+
   //.367 is used to convert the 0.5-4.5v 0-1024 value signal to 0-300psi
   //.184 for 0-1024 to 0-150psi
   // 102 is the .5v offset

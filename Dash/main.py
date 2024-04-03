@@ -52,12 +52,14 @@ values = {
 'Voltage':0,
 'MPH' : 0,
 'EPCPSI' : 0,
-'controlslocked' : 0,
+'ShiftMode' : 0,
 'EPCPWM':0,
 'Gear' : 0,
 'TCC' : 0,
 'Fuel': 0,
-'Oil' : 0
+'Oil' : 0,
+'Odometer' : 0.0000,
+'Tripometer' : 0.00000
 }
 
 meters = {}
@@ -67,6 +69,7 @@ t2 = None
 LastMessageTime = datetime.now()
 logfilename = datetime.now().strftime("%m%d%y_%H%M")
 logfilename = logfilename + ".csv"
+odofilename = 'miles.odo'
 
 def toggle_led(led):
     if led.cget("bg") == "gray":
@@ -74,15 +77,53 @@ def toggle_led(led):
     else:
         led.config(bg="gray")
 
-def screen_off():
-    os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+def power_off(filepath,values):
+    try:
+        with open(filepath, 'w') as file:
+            file.write(str(int(values['Odometer'])) + ',' + str(int(values['Tripometer'])))
+        print(f"Data saved to {filepath}")
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+    #TODO upload csv files
+    upload_csv()
+    os.system('sudo shutdown -h now')
+    quit()
+
+def power_on(filepath,values):
+    try:
+        with open(filepath, 'r') as file:
+            content = file.read()
+            integers = content.split(',')
+            values['Odometer'], values['Tripometer'] = map(int, integers)
+    except FileNotFoundError:
+        print(f"File '{filepath}' not found. Please check the file path.")
+    except ValueError:
+        print("Error: The file does not contain valid integers separated by a comma.")
+
+    #TODO upload csv files
+    upload_csv()
+
+def upload_csv():
+    #TODO upload csv files
+    print("TODO...")
 
 def screen_on():
     os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
 
+def screen_off():
+    os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+
 def replace_text(text_widget, new_text):
     text_widget.delete('1.0', ttk.END)
     text_widget.insert('1.0', new_text)
+
+def calculate_distance(speed_mph,time_ms):
+    mpms = speed_mph / 3600000  # 1 hour = 3600000 milliseconds
+    distance = mpms * time_ms
+    return distance
 
 def receive_can_messages(values,bus,LastMessageTime,out_q):
     global count
@@ -115,10 +156,11 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['Gear'] = canMsg.data[1]
                     values['MPH'] = canMsg.data[2]
                     values['Oil'] = canMsg.data[3]
-
+                    values['Odometer'] = values['Odometer'] + calculate_distance(canMsg.data[2],200)
+                    values['Tripometer'] = values['Tripometer'] +  calculate_distance(canMsg.data[2],200)
 
                 elif canMsg.arbitration_id == 1802:
-                    values['controlslocked'] = canMsg.data[0]
+                    values['ShiftMode'] = canMsg.data[0]
                     values['EPCPSI'] = round(canMsg.data[3] | (canMsg.data[2] << 8))
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
@@ -129,10 +171,14 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
 
                 #steeringwheel
                 elif canMsg.arbitration_id == 1601:
-                    txt = "Manual shift detected: "
+                    txt = "Manual shift detected: "                    
                     for x in range(5):
                         txt = txt + str(canMsg.data[x]) + ", "
                     replace_text(meters['Log'], txt)
+
+                    if canMsg.data[0]:
+                        replace_text(meters['Log'], "powering off!")
+                        power_off(odofilename,values)
 
 
                 LastMessageTime = datetime.now()        
@@ -161,7 +207,9 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                 values['TCC'] = 0
             else:
                 values['TCC'] = 1
-                
+            
+            values['Odometer'] = values['Odometer'] + calculate_distance(values['RPM'],200)
+            values['Tripometer'] = values['Tripometer'] +  calculate_distance(values['RPM'],200)
 
             meters['cnv'].draw()
             out_q.put(values)
@@ -184,6 +232,9 @@ def update(meters,values):
         meters['Voltage'].amountusedvar.set(values['Voltage'])
     if meters['MPH'].amountusedvar.get() != values['MPH']:
         meters['MPH'].amountusedvar.set(values['MPH'])
+    replace_text(meters['Trip'], values['Tripometer'])
+    replace_text(meters['Odo'], values['Odometer'])
+
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
         labels['EPCPSI'].config(text = values['EPCPSI'])
@@ -201,15 +252,11 @@ def update(meters,values):
     else:
         meters['TCC'].config(bg="gray")
 
-    if values['controlslocked'] == 1:
-        meters['controlslocked'].config(bg="green")
-    else:
-        meters['controlslocked'].config(bg="gray")
-
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
     if meters['Oil'].amountusedvar.get() != values['Oil']:
         meters['Oil'].amountusedvar.set(values['Oil'])
+
 
     app.after(10,update,meters,values)  
 
@@ -450,13 +497,9 @@ if enableDisplay:
     #   TCC indicator
 
     
-    tcc = ttk.Canvas(app, width=10, height=10, bg="gray", highlightthickness=0)
+    tcc = ttk.Canvas(app, width=15, height=15, bg="gray", highlightthickness=0)
     tcc.place(x=1830,y=265)
     meters['TCC'] = tcc
-
-    locked = ttk.Canvas(app, width=50, height=50, bg="gray", highlightthickness=0)
-    locked.place(x=1600,y=265)
-    meters['controlslocked'] = locked
 
     # tcc = ttk.Radiobutton(frame, style="info",text="TCC")
     # tcc
@@ -482,12 +525,22 @@ if enableDisplay:
     trip = ttk.Text(frame, height=1)
     trip.place(x=650,y=360,width=100)
     trip.tag_configure('right', justify='right')
-    trip.insert('0.0',"0")
+    trip.insert('0.0',"0.0010")
     meters['Trip'] = trip
 
     #-----------------------------------------------------
 
+    my_button = ttk.Button(frame, text="Power Off", command=lambda: power_off(odofilename,values))
+    my_button.place(x=1050,y=360,width=100)
+    #my_button.pack()
+
+
+    #-----------------------------------------------------
+
     #endregion
+
+    power_on(odofilename,values)
+
     q = Queue()
     recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime,q))
     recv_thread.start()
