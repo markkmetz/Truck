@@ -6,6 +6,10 @@ jobs:
     steps:
     - name: Install Arduino CLI
       uses: arduino/setup-arduino-cli@v1
+    - name: Install platform
+      run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
     - name: Check out code
       uses: actions/checkout@v4
     - name: Compile Sketch
