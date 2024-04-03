@@ -7,9 +7,10 @@ jobs:
     - name: Install Arduino CLI
       uses: arduino/setup-arduino-cli@latest
     - name: Check out code
-      uses: actions/checkout@latest
+      uses: actions/checkout@v4
     - name: Compile Arduino Sketch
       uses: arduino/compile-sketches@latest
       with:
         fqbn: arduino:avr:mega
         sketch-names: 'Transmission_Controller/main/main.ino'
+
