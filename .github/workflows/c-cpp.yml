@@ -13,8 +13,6 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
     - name: get libraries
-      run: |
-          arduino-cli config set library.enable_unsafe_install true
-          arduino-cli lib install --git-url https://github.com/autowp/arduino-mcp2515.git
+      run: arduino-cli lib install "autowp-mcp2515"
     - name: Compile Sketch
       run: arduino-cli compile --fqbn "arduino:avr:mega" "Transmission_Controller/main/main.ino"
