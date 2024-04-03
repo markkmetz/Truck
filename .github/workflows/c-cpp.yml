@@ -5,11 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Arduino CLI
-      uses: arduino/setup-arduino-cli@v1
+      uses: arduino/setup-arduino-cli@latest
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@latest
     - name: Compile Arduino Sketch
-      uses: arduino/compile-sketches@v3
+      uses: arduino/compile-sketches@latest
       with:
         fqbn: arduino:avr:mega
         sketch-names: 'Transmission_Controller/main/main.ino'
