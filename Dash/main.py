@@ -13,6 +13,9 @@ import threading
 from datetime import datetime
 import numpy as np
 import os
+from queue import Queue
+import csv
+
 
 os_type = platform.system()
 bus = None
@@ -41,8 +44,6 @@ small_font = ttk.font.Font(size=8)
 
 
 values = {
-'Time':[],
-'rpmtest': [0 for _ in range(40)],
 'RPM' : 0,
 'Bar': 0,
 'MAP':0,
@@ -51,12 +52,14 @@ values = {
 'Voltage':0,
 'MPH' : 0,
 'EPCPSI' : 0,
-'LinePSI' : 0,
+'ShiftMode' : 0,
 'EPCPWM':0,
 'Gear' : 0,
 'TCC' : 0,
 'Fuel': 0,
-'Oil' : 0
+'Oil' : 0,
+'Odometer' : 0.0000,
+'Tripometer' : 0.00000
 }
 
 meters = {}
@@ -64,14 +67,65 @@ labels = {}
 t1 = None
 t2 = None
 LastMessageTime = datetime.now()
+logfilename = datetime.now().strftime("%m%d%y_%H%M")
+logfilename = logfilename + ".csv"
+odofilename = 'miles.odo'
 
-def screen_off():
-    os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+def toggle_led(led):
+    if led.cget("bg") == "gray":
+        led.config(bg="green")
+    else:
+        led.config(bg="gray")
+
+def power_off(filepath,values):
+    try:
+        with open(filepath, 'w') as file:
+            file.write(str(int(values['Odometer'])) + ',' + str(int(values['Tripometer'])))
+        print(f"Data saved to {filepath}")
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+    #TODO upload csv files
+    upload_csv()
+    os.system('sudo shutdown -h now')
+    quit()
+
+def power_on(filepath,values):
+    try:
+        with open(filepath, 'r') as file:
+            content = file.read()
+            integers = content.split(',')
+            values['Odometer'], values['Tripometer'] = map(int, integers)
+    except FileNotFoundError:
+        print(f"File '{filepath}' not found. Please check the file path.")
+    except ValueError:
+        print("Error: The file does not contain valid integers separated by a comma.")
+
+    #TODO upload csv files
+    upload_csv()
+
+def upload_csv():
+    #TODO upload csv files
+    print("TODO...")
 
 def screen_on():
     os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
 
-def receive_can_messages(values,bus,LastMessageTime):
+def screen_off():
+    os.system('echo 1 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
+
+def replace_text(text_widget, new_text):
+    text_widget.delete('1.0', ttk.END)
+    text_widget.insert('1.0', new_text)
+
+def calculate_distance(speed_mph,time_ms):
+    mpms = speed_mph / 3600000  # 1 hour = 3600000 milliseconds
+    distance = mpms * time_ms
+    return distance
+
+def receive_can_messages(values,bus,LastMessageTime,out_q):
     global count
 
     while True:
@@ -102,15 +156,30 @@ def receive_can_messages(values,bus,LastMessageTime):
                     values['Gear'] = canMsg.data[1]
                     values['MPH'] = canMsg.data[2]
                     values['Oil'] = canMsg.data[3]
-
+                    values['Odometer'] = values['Odometer'] + calculate_distance(canMsg.data[2],200)
+                    values['Tripometer'] = values['Tripometer'] +  calculate_distance(canMsg.data[2],200)
 
                 elif canMsg.arbitration_id == 1802:
-                    values['LinePSI'] = round(canMsg.data[0] | (canMsg.data[1] << 8))
-                    values['EPCPSI'] = round(canMsg.data[2] | (canMsg.data[3] << 8))
+                    values['ShiftMode'] = canMsg.data[0]
+                    values['EPCPSI'] = round(canMsg.data[3] | (canMsg.data[2] << 8))
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = round(canMsg.data[7]/2.55)
+                    #update the chart?
+                    #meters['cnv'].draw()
+
+                #steeringwheel
+                elif canMsg.arbitration_id == 1601:
+                    txt = "Manual shift detected: "                    
+                    for x in range(5):
+                        txt = txt + str(canMsg.data[x]) + ", "
+                    replace_text(meters['Log'], txt)
+
+                    if canMsg.data[0]:
+                        replace_text(meters['Log'], "powering off!")
+                        power_off(odofilename,values)
+
 
                 LastMessageTime = datetime.now()        
                     
@@ -122,9 +191,11 @@ def receive_can_messages(values,bus,LastMessageTime):
                     print(s)
                     print("")
 
+                out_q.put(values)
+
             else:
                 if (LastMessageTime - datetime.now()).total_seconds() >3:
-                    print("Timeout...")
+                    replace_text(meters['Log'], "Timeout")
                     screen_off()
                     time.sleep(15)
 
@@ -132,10 +203,17 @@ def receive_can_messages(values,bus,LastMessageTime):
             count += 1
             time.sleep(.05)
             values['RPM'] = count
-            values['rpmtest'].append(count)
-            values['rpmtest'] = values['rpmtest'][1:]
-            meters['epc_plt'].set_ydata(values['rpmtest'])
+            if values['TCC'] == 1:
+                values['TCC'] = 0
+            else:
+                values['TCC'] = 1
+            
+            values['Odometer'] = values['Odometer'] + calculate_distance(values['RPM'],200)
+            values['Tripometer'] = values['Tripometer'] +  calculate_distance(values['RPM'],200)
+
             meters['cnv'].draw()
+            out_q.put(values)
+            
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
@@ -154,23 +232,48 @@ def update(meters,values):
         meters['Voltage'].amountusedvar.set(values['Voltage'])
     if meters['MPH'].amountusedvar.get() != values['MPH']:
         meters['MPH'].amountusedvar.set(values['MPH'])
+    replace_text(meters['Trip'], values['Tripometer'])
+    replace_text(meters['Odo'], values['Odometer'])
+
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
         labels['EPCPSI'].config(text = values['EPCPSI'])
+        #meters['epc_plt'].set_ydata(values['EPCPSI'])
     # if meters['LinePSI'].amountusedvar.get() != values['LinePSI']:
     #     meters['LinePSI'].amountusedvar.set(values['LinePSI'])
     if meters['EPCPWM']['value'] != values['EPCPWM']:
         meters['EPCPWM']['value'] = values['EPCPWM']
     if meters['Gear'].amountusedvar.get() != values['Gear']:
         meters['Gear'].amountusedvar.set(values['Gear'])
-    meters['TCC'].variable = values['TCC']
+        labels['Gear'].config(text = values['Gear'])
+    
+    if values['TCC'] == 1:
+        meters['TCC'].config(bg="green")
+    else:
+        meters['TCC'].config(bg="gray")
+
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
     if meters['Oil'].amountusedvar.get() != values['Oil']:
         meters['Oil'].amountusedvar.set(values['Oil'])
 
+
     app.after(10,update,meters,values)  
 
+def logdata(in_q):
+    fieldnames = values.keys()
+    with open(logfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if csvfile.tell() == 0:
+            writer.writeheader()
+        while True:
+            time.sleep(0.05)
+            if in_q.qsize() > 0:
+                data = in_q.get()
+                fieldnames = data.keys()
+                writer.writerow(data)
+                csvfile.flush()
+                q.task_done()
 
 if enableDisplay:
     #region meters
@@ -242,9 +345,8 @@ if enableDisplay:
     # line, = ax.plot(values[''])    
     # meters['epc_plt'] = line
 
-    line, = ax.plot(values['rpmtest'])    
+    line, = ax.plot(values['EPCPSI'])    
     meters['epc_plt'] = line
-
     
 
     # Add the second line
@@ -380,23 +482,28 @@ if enableDisplay:
     label.place(x=1840, y=210 + 90)
     labels['Gear'] = label
 
-    label = ttk.Label(frame, text="Gear", font=med_font)
-    label.place(x=1830, y=210 + 140)
+    label2 = ttk.Label(frame, text="Gear", font=med_font)
+    label2.place(x=1830, y=210 + 140)
 
     progressbar = ttk.Progressbar(frame, value=0, orient='vertical',length=170)
     progressbar.place(x=1890,y=210 + 8,width=20)
     meters['TPS'] = progressbar
 
-    label = ttk.Label(frame, text="Load", font=small_font)
-    label.place(x=1885, y=210+ 180)
+    label3 = ttk.Label(frame, text="Load", font=small_font)
+    label3.place(x=1885, y=210+ 180)
 
 
     #-----------------------------------------------------
     #   TCC indicator
 
-    tcc = ttk.Radiobutton(frame, style="info",text="TCC")
+    
+    tcc = ttk.Canvas(app, width=15, height=15, bg="gray", highlightthickness=0)
     tcc.place(x=1830,y=265)
     meters['TCC'] = tcc
+
+    # tcc = ttk.Radiobutton(frame, style="info",text="TCC")
+    # tcc
+    # meters['TCC'] = tcc
 
     # checkengine = ttk.Radiobutton(frame, style="warning",text="Check Engine")
     # checkengine.place(x=500,y=10)
@@ -407,25 +514,48 @@ if enableDisplay:
     text_box = ttk.Text(frame, height=2)
     text_box.place(x=0,y=460,relwidth=1)
     text_box.insert('1.0',"Initialized.. Connecting to CAN...")
+    meters['Log'] = text_box
 
     odo = ttk.Text(frame, height=1)
     odo.place(x=650,y=390,width=100)
     odo.tag_configure('right', justify='right')
     odo.insert('0.0',"347,349")
+    meters['Odo'] = odo
+
+    trip = ttk.Text(frame, height=1)
+    trip.place(x=650,y=360,width=100)
+    trip.tag_configure('right', justify='right')
+    trip.insert('0.0',"0.0010")
+    meters['Trip'] = trip
+
+    #-----------------------------------------------------
+
+    my_button = ttk.Button(frame, text="Power Off", command=lambda: power_off(odofilename,values))
+    my_button.place(x=1050,y=360,width=100)
+    #my_button.pack()
+
 
     #-----------------------------------------------------
 
     #endregion
 
+    power_on(odofilename,values)
 
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
+    q = Queue()
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime,q))
     recv_thread.start()
+
+    log_thread = threading.Thread(target=logdata, args=(q,))
+    log_thread.start()
+
     update(meters,values)
     app.mainloop()
 else:
-    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime))
-    recv_thread.start()
+    q = Queue()
     print("started!")
+    recv_thread = threading.Thread(target=receive_can_messages,args=(values,bus,LastMessageTime,q))
+    recv_thread.start()
+    
     while True:
         #print("this")
         time.sleep(.1)

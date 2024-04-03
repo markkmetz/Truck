@@ -1,7 +1,7 @@
 // https://wokwi.com/projects/new/arduino-uno
 // https://ww2-secure.justanswer.com/uploads/bobover/2011-02-05_023022_line_pressure_test_4r70w.pdf
 
-const String VERSION = "01.02.24.1";
+const String VERSION = "02.22.24.1";
 // const bool ENABLE_CAN_BUS;
 int count = 11;
 #include <SPI.h>
@@ -60,6 +60,15 @@ enum CurveName
   FourthDown = 5
 };
 
+enum ShiftMode
+{
+  Manual = 0,
+  ManualTow = 1,
+  Auto = 2,
+  Performance = 3,
+  RPMBased = 4
+};
+
 struct Curve
 {
   CurveName curvename;
@@ -74,8 +83,8 @@ Curve bettercurves[6] = {
     {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
     {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
     {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
-    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 41, 51, 60, 75, 85, 93, 100, 100}, 40, 1},
-    {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 40, 1}};
+    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1},
+    {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1}};
 
 class Timer
 {
@@ -309,7 +318,8 @@ unsigned long Shift_Current_Millis;
 bool enableEPC = true;
 bool enabletcc = false;
 bool enabletestshifting = false;
-bool manualmode = 0;
+int ShiftMode = Manual;
+
 bool loggingenabled = 1;
 int cmd = -1;
 
@@ -357,182 +367,27 @@ void loop()
   // run the timers
   shiftingTimer.Run();
   postShiftTimer.Run();
-  cmd = Serial.read();
+
   MeasurePressures();
 
   MeasureSpeed();
 
-  // if (OSS_Avg_Speed > 30)
-  // {
-  //   MeasureISS();
-  //   trans_Slippage = abs(ISS_Avg_Speed - OSS_Avg_Speed) / 100;
-  // }
-  // else
-  // {
-  //   trans_Slippage = 0;
-  // }
-
   RegulateEPC();
 
-  CheckShift();
-
-  TCCLockup();
+  cmd = Serial.read();
 
   if (cmd == 109) // m --toggle mode
-    manualmode = !manualmode;
+    ShiftMode = Manual;
 
-  if (manualmode)
+  if (ShiftMode == Manual)
   {
-    switch (cmd)
-    {
-    case 49: // 1 --shift to 1st gear
-    {
-      CommandedGear = 1;
-      break;
-    }
-    case 50: // 2 --shift to 2nd gear
-    {
-      CommandedGear = 2;
-      shiftingTimer.start(500, bettercurves[FirstUP]);
-      break;
-    }
-    case 51: // 3 --shift to 3rd gear
-    {
-      shiftingTimer.start(500, bettercurves[SecondUp]);
-      CommandedGear = 3;
-      break;
-    }
-    case 52: // 4 --shift to 4th gear
-    {
-      shiftingTimer.start(500, bettercurves[ThirdUp]);
-      CommandedGear = 4;
-      break;
-    }
-    case 48: // 0 --shift to imaginary 0th gear
-    {
-      CommandedGear = 0;
-      break;
-    }
-    case 53: // 4 --shift to imaginary 5th gear
-    {
-      CommandedGear = 5;
-      break;
-    }
-    case 54: // 6 --shift to imaginary 6th gear
-    {
-      CommandedGear = 6;
-      break;
-    }
-    case 55: // 7 --shift to imaginary -1th gear
-    {
-      CommandedGear = -1;
-      Shift();
-      break;
-    }
-    case 101: // e --toggle epc
-    {
-      enableEPC = !enableEPC;
+    ManualMode();
+  }
+  else
+  {
+    CheckShift();
 
-      // shutdown epc. should probably be a function
-      EPCSetpoint = 0;
-      analogWrite(EPC_PIN, EPCSetpoint);
-      Serial.print("EPC = ");
-      Serial.println(enableEPC);
-      break;
-    }
-    case 116: // t --toggle torque converter TODO
-    {
-      enabletcc = !enabletcc;
-      Serial.println("tcc is now ");
-      Serial.println(enabletcc);
-      if (enabletcc)
-      {
-        digitalWrite(TCC_PIN, HIGH);
-      }
-      else
-      {
-        digitalWrite(TCC_PIN, LOW);
-      }
-
-      break;
-    }
-    case 108: // l --increment fake load data
-    {
-      Load_Avg = Load_Avg + 3;
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
-
-      Load_Change = true;
-      break;
-    }
-    case 76: // L --decrement fake load data
-    {
-      Load_Avg = Load_Avg - 3;
-      Serial.print("Load is set to: ");
-      Serial.println(Load_Avg);
-
-      Load_Change = true;
-      break;
-    }
-    case 99: // c --calc shift
-    {
-      CheckShift();
-      break;
-    }
-    case 111: // o --increment OSS data
-    {
-      OSS_Avg_Speed;
-
-      int newspeed = OSS_Avg_Speed + 3;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
-      break;
-    }
-    case 79: // O --decrement OSS data
-    {
-      OSS_Avg_Speed;
-
-      int newspeed = OSS_Avg_Speed - 3;
-      if (newspeed > 130)
-        newspeed = -20;
-      for (int i = 0; i < OSS_Smoothing; i++)
-      {
-        OSS[i] = newspeed;
-      }
-      OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
-      Serial.print("Speed is set to: ");
-      Serial.println(OSS_Avg_Speed);
-
-      break;
-    }
-    case 65: // A --toggle shifting based on checkshift()
-    {
-      enabletestshifting = !enabletestshifting;
-      Serial.print("debug shifting is currently: ");
-      Serial.println(enabletestshifting);
-      break;
-    }
-    default: // command not found
-    {
-      if (cmd != -1)
-      {
-        Serial.println(cmd);
-      }
-      break;
-    }
-    }
-    if (cmd != -1)
-    {
-      Serial.println("");
-    }
-    cmd = -1;
+    TCCLockup();
   }
 
   // TODO break this out into a function. inside getcanpacket it does global var stuff
@@ -548,30 +403,9 @@ void loop()
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
     }
-  }
-  SendCanData();
-
-  PrintSerialData();
-}
-
-BroadcastPacket GetCanPacket()
-{
-  BroadcastPacket bptemp = {};
-
-  if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
-  {
-
-    if (canMsg.can_id == 1523)
+    else if (canMsg.can_id == 1601 && !shiftingTimer.isRunning && !postShiftTimer.isRunning)
     {
-      bptemp.dataid = canMsg.can_id;
-      Load_Avg = canMsg.data[1] | canMsg.data[0] << 8;
-      Load_Avg = Load_Avg / 10;
-    }
-    // Serial.println(canMsg.can_id);
-    else if (canMsg.can_id == 1601)
-    {
-      Serial.println(canMsg.can_id);
-      manualmode = 1;
+      ShiftMode = Manual;
       if (canMsg.data[3])
       { // accel pin
         Serial.println("ACCEL detected!!");
@@ -580,27 +414,59 @@ BroadcastPacket GetCanPacket()
         {
           CommandedGear = 4;
         }
-        Shift();
+
+        switch (CommandedGear)
+        {
+        case 2:
+          // 1->2 FirstUP = 0,
+          shiftingTimer.start(500, bettercurves[FirstUP]);
+          break;
+        case 3:
+          // 2->3 SecondUp = 2,
+          shiftingTimer.start(500, bettercurves[SecondUp]);
+          break;
+        case 4:
+          // 3->4 ThirdUp = 4,
+          shiftingTimer.start(500, bettercurves[ThirdUp]);
+          break;
+        default:
+          break;
+        }
       }
       else if (canMsg.data[2])
       { // coast
         Serial.println("COAST detected!!");
         CommandedGear = CurrentGear - 1;
-        if (CommandedGear = 0)
+        if (CommandedGear == 0)
         {
           CommandedGear = 1;
         }
-        Shift();
+
+        switch (CommandedGear)
+        {
+        case 1:
+          // 2->1
+          shiftingTimer.start(500, bettercurves[SecondDown]);
+          break;
+        case 2:
+          // 3->2
+          shiftingTimer.start(500, bettercurves[ThirdDown]);
+          break;
+        case 3:
+          // 4->3
+          shiftingTimer.start(500, bettercurves[FourthDown]);
+          break;
+        default:
+          break;
+        }
       }
       else if (canMsg.data[0])
       { // off
         Serial.println("OFF detected!!");
-        EPCSetpoint = EPCSetpoint - 10;
       }
       else if (canMsg.data[1])
       { // on
         Serial.println("ON detected!!");
-        EPCSetpoint = EPCSetpoint + 10;
       }
       else if (canMsg.data[4])
       { // TCC
@@ -617,21 +483,10 @@ BroadcastPacket GetCanPacket()
       canMsg1.data[1] = enabletcc;
       mcp2515.sendMessage(&canMsg1);
     }
-    else if (canMsg.can_id == 1520)
-    {
-      Serial.println(canMsg.can_id);
+  }
+  SendCanData();
 
-      rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
-      Serial.println(canMsg.data[0]);
-    }
-  }
-  if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
-  {
-    Serial.println("second time is the charm");
-    Serial.println(canMsg.can_id);
-    Serial.println("");
-  }
-  return bptemp;
+  // PrintSerialData();
 }
 
 void MeasureSpeed()
@@ -721,7 +576,7 @@ void RegulateEPC()
     }
     else
     {
-      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint + Load_Avg;
+      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
       EPCPWM = 80 - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
@@ -751,6 +606,7 @@ void TCCLockup()
       enabletcc = false;
     }
   }
+  digitalWrite(TCC_PIN, enabletcc);
 }
 
 void SendCanData()
@@ -769,7 +625,7 @@ void SendCanData()
     struct can_frame canMsg3;
     canMsg3.can_id = 1802;
     canMsg3.can_dlc = 8;
-    canMsg3.data[0] = 0; // empty was line pressure
+    canMsg3.data[0] = ShiftMode;
     canMsg3.data[1] = 0; // empty was line pressure
 
     canMsg3.data[2] = (EPCPressure >> 8) & 0xFF;
@@ -838,7 +694,9 @@ void CheckShift()
 
 void MeasurePressures()
 {
-  FuelLevel = analogRead(Fuel_Level_Pin);
+  // scale is based off of 635 = full and 573 = full-3.73 gallons (87%)
+  FuelLevel = (analogRead(Fuel_Level_Pin) * 0.209) - 32.45;
+
   //.367 is used to convert the 0.5-4.5v 0-1024 value signal to 0-300psi
   //.184 for 0-1024 to 0-150psi
   // 102 is the .5v offset
@@ -930,7 +788,7 @@ void Shift()
     digitalWrite(SOL_B_Pin, HIGH);
     CurrentGear = 4;
   }
-  postShiftTimer.start(4000);
+  postShiftTimer.start(1000);
 }
 
 int CalculateGear()
@@ -1113,4 +971,159 @@ double getAverage(int arr[], int size)
     Serial.println("error at getAverage()");
   }
   return avg;
+}
+
+void ManualMode()
+{
+
+  switch (cmd)
+  {
+  case 49: // 1 --shift to 1st gear
+  {
+    CommandedGear = 1;
+    break;
+  }
+  case 50: // 2 --shift to 2nd gear
+  {
+    CommandedGear = 2;
+    shiftingTimer.start(500, bettercurves[FirstUP]);
+    break;
+  }
+  case 51: // 3 --shift to 3rd gear
+  {
+    shiftingTimer.start(500, bettercurves[SecondUp]);
+    CommandedGear = 3;
+    break;
+  }
+  case 52: // 4 --shift to 4th gear
+  {
+    shiftingTimer.start(500, bettercurves[ThirdUp]);
+    CommandedGear = 4;
+    break;
+  }
+  case 48: // 0 --shift to imaginary 0th gear
+  {
+    CommandedGear = 0;
+    break;
+  }
+  case 53: // 4 --shift to imaginary 5th gear
+  {
+    CommandedGear = 5;
+    break;
+  }
+  case 54: // 6 --shift to imaginary 6th gear
+  {
+    CommandedGear = 6;
+    break;
+  }
+  case 55: // 7 --shift to imaginary -1th gear
+  {
+    CommandedGear = -1;
+    Shift();
+    break;
+  }
+  case 101: // e --toggle epc
+  {
+    enableEPC = !enableEPC;
+
+    // shutdown epc. should probably be a function
+    EPCSetpoint = 0;
+    analogWrite(EPC_PIN, EPCSetpoint);
+    Serial.print("EPC = ");
+    Serial.println(enableEPC);
+    break;
+  }
+  case 116: // t --toggle torque converter TODO
+  {
+    enabletcc = !enabletcc;
+    Serial.println("tcc is now ");
+    Serial.println(enabletcc);
+    if (enabletcc)
+    {
+      digitalWrite(TCC_PIN, HIGH);
+    }
+    else
+    {
+      digitalWrite(TCC_PIN, LOW);
+    }
+
+    break;
+  }
+  case 108: // l --increment fake load data
+  {
+    Load_Avg = Load_Avg + 3;
+    Serial.print("Load is set to: ");
+    Serial.println(Load_Avg);
+
+    Load_Change = true;
+    break;
+  }
+  case 76: // L --decrement fake load data
+  {
+    Load_Avg = Load_Avg - 3;
+    Serial.print("Load is set to: ");
+    Serial.println(Load_Avg);
+
+    Load_Change = true;
+    break;
+  }
+  case 99: // c --calc shift
+  {
+    CheckShift();
+    break;
+  }
+  case 111: // o --increment OSS data
+  {
+    OSS_Avg_Speed;
+
+    int newspeed = OSS_Avg_Speed + 3;
+    if (newspeed > 130)
+      newspeed = -20;
+    for (int i = 0; i < OSS_Smoothing; i++)
+    {
+      OSS[i] = newspeed;
+    }
+    OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+    Serial.print("Speed is set to: ");
+    Serial.println(OSS_Avg_Speed);
+    break;
+  }
+  case 79: // O --decrement OSS data
+  {
+    OSS_Avg_Speed;
+
+    int newspeed = OSS_Avg_Speed - 3;
+    if (newspeed > 130)
+      newspeed = -20;
+    for (int i = 0; i < OSS_Smoothing; i++)
+    {
+      OSS[i] = newspeed;
+    }
+    OSS_Avg_Speed = getAverage(OSS, OSS_Smoothing);
+    Serial.print("Speed is set to: ");
+    Serial.println(OSS_Avg_Speed);
+
+    break;
+  }
+  case 65: // A --toggle shifting based on checkshift()
+  {
+    enabletestshifting = !enabletestshifting;
+    Serial.print("debug shifting is currently: ");
+    Serial.println(enabletestshifting);
+    break;
+  }
+  default: // command not found
+  {
+    if (cmd != -1)
+    {
+      Serial.println(cmd);
+    }
+    break;
+  }
+  }
+  if (cmd != -1)
+  {
+    Serial.println("");
+  }
+  cmd = -1;
 }
