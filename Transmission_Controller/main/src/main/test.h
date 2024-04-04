@@ -1,9 +1,11 @@
 #ifndef _TEST_H
 #define _TEST_H
+
+
 #include "main.h"
 
-void arduinosetup_Test();
-void arduinoloop_Test();
+
+int main();
 
 void Shift_Test();
 void MeasureSpeed_Test();
@@ -19,9 +21,9 @@ void Shift_Test();
 void CalculateGear_Test();
 void CalcShiftValue_Test(CurveName cname, double load);
 void CalcPressureValue_Test(Curve curve, double load);
-void getDoubleAverage_Test(double arr[], int size);
-void getDoubleAverageWithoutExtremeValues_Test(int arr[], int size);
-void getAverage_Test(int arr[], int size);
+void getDoubleAverage_Test();
+void getDoubleAverageWithoutExtremeValues_Test();
+void getAverage_Test();
 void ManualMode_Test();
 
 #endif

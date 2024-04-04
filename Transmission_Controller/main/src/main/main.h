@@ -1,9 +1,20 @@
 #ifndef _MAIN_H
 #define _MAIN_H
-#include <Arduino.h>
-#include <SPI.h>
 
+
+
+#ifdef ARDUINO
 #include <mcp2515.h>
+#else
+#include "mock2515.h"
+#include <cstdint>
+#include <string>
+#include <iostream>
+#include <assert.h>
+typedef uint8_t byte;
+#endif
+
+
 
 enum CurveName
 {
@@ -45,6 +56,5 @@ double getDoubleAverage(double arr[], int size);
 double getDoubleAverageWithoutExtremeValues(int arr[], int size);
 double getAverage(int arr[], int size);
 void ManualMode();
-
 
 #endif

@@ -4,8 +4,6 @@
 const String VERSION = "02.22.24.1";
 // const bool ENABLE_CAN_BUS;
 #include "src/main/main.h"
-#include "src/main/test.h"
-
 
 void setup(){
   arduinosetup();
