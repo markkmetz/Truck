@@ -3,6 +3,11 @@
 
 #include "main.h"
 
+#ifdef TEST
+MockSerial Serial;
+#endif
+
+
 const String VERSION = "02.22.24.1";
 // const bool ENABLE_CAN_BUS;
 //int count = 11;
@@ -230,7 +235,7 @@ public:
     return output;
   }
 
-  int clear()
+  void clear()
   {
     integral = 0;
     pre_error = 0;
@@ -337,6 +342,7 @@ void arduinosetup()
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
+
 
   Serial.begin(9600);
   Serial.println(VERSION);
@@ -487,7 +493,7 @@ void MeasureSpeed()
     s = 0;
   }
 
-  if (s < 140 and s > -1)
+  if (s < 140 && s > -1)
     OSS_Speeds[OSS_Speed_Count] = s;
   else
     OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
@@ -523,7 +529,7 @@ void MeasureISS()
     s = 0;
   }
 
-  if (s < 140 and s > 0)
+  if (s < 140 && s > 0)
     ISS_Speeds[ISS_Speed_Count] = s;
   else
     ISS_Speeds[ISS_Speed_Count] = ISS_Avg_Speed;

@@ -5,6 +5,19 @@
 #include "main.h"
 
 
+
+#ifndef TEST
+#include <mcp2515.h>
+#else
+#include "mock2515.h"
+#include <cstdint>
+#include <string>
+#include <iostream>
+#include <assert.h>
+
+
+
+
 int main();
 
 void Shift_Test();
@@ -26,4 +39,5 @@ void getDoubleAverageWithoutExtremeValues_Test();
 void getAverage_Test();
 void ManualMode_Test();
 
+#endif
 #endif

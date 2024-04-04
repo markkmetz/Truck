@@ -2,8 +2,7 @@
 #define _MAIN_H
 
 
-
-#ifdef ARDUINO
+#ifndef TEST
 #include <mcp2515.h>
 #else
 #include "mock2515.h"
@@ -11,8 +10,9 @@
 #include <string>
 #include <iostream>
 #include <assert.h>
-typedef uint8_t byte;
+#include <algorithm>
 #endif
+
 
 
 
@@ -57,4 +57,6 @@ double getDoubleAverageWithoutExtremeValues(int arr[], int size);
 double getAverage(int arr[], int size);
 void ManualMode();
 
+
 #endif
+
