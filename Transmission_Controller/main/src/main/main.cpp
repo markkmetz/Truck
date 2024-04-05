@@ -66,7 +66,6 @@ enum ShiftMode
   RPMBased = 4
 };
 
-
 Curve bettercurves[6] = {
     {FirstUP, {3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
     {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
@@ -912,7 +911,7 @@ double getDoubleAverage(double arr[], int size)
   return avg;
 }
 
-double getDoubleAverageWithoutExtremeValues(int arr[], int size)
+int getDoubleAverageWithoutExtremeValues(int arr[], int size)
 {
   int sum = 0;
   for (int i = 0; i < size; ++i)

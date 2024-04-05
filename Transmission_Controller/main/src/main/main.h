@@ -57,6 +57,12 @@ extern bool tccTimer;
 extern bool shifting;
 extern int CurrentGear;
 
+extern const byte ISS_Pin;
+extern const byte OSS_Pin;
+extern const byte Fuel_Level_Pin;
+extern const byte OIL_Pressure_PIN;
+extern const byte EPC_PRESSURE_PIN;
+
 void arduinosetup();
 void arduinoloop();
 
@@ -75,7 +81,7 @@ int CalculateGear();
 double CalcShiftValue(CurveName cname, double load);
 double CalcPressureValue(Curve curve, double load);
 double getDoubleAverage(double arr[], int size);
-double getDoubleAverageWithoutExtremeValues(int arr[], int size);
+int getDoubleAverageWithoutExtremeValues(int arr[], int size);
 double getAverage(int arr[], int size);
 void ManualMode();
 

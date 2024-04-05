@@ -11,6 +11,8 @@ int main()
   CheckShift_Test();
   curve_Test();
   CalculateGear_Test();
+  MeasureSpeed_Test();
+  getDoubleAverageWithoutExtremeValues_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;
@@ -48,13 +50,30 @@ void curve_Test()
     assert(bettercurves[ThirdDown].shiftPoints[i] < bettercurves[FourthDown].shiftPoints[i]);
   }
 };
+
 void Shift_Test(){};
-void MeasureSpeed_Test(){};
+
+void MeasureSpeed_Test()
+{
+  MeasurePressures();
+  assert(Fuel_Level_Pin >= 0);
+  assert(Fuel_Level_Pin <= 300);
+  assert(OilPressure >= 0);
+  assert(OilPressure <= 300);
+  assert(EPC_PRESSURE_PIN >= 0);
+  assert(EPC_PRESSURE_PIN <= 300);
+};
+
 void MeasureISS_Test(){};
+
 void RegulateEPC_Test(){};
+
 void TCCLockup_Test(){};
+
 void SendCanData_Test(){};
+
 void PrintSerialData_Test(){};
+
 void splitIntoTwoBytes_Test()
 {
   byte byte1, byte2;
@@ -79,39 +98,56 @@ void splitIntoTwoBytes_Test()
   splitIntoTwoBytes(-1, byte1, byte2);
   assert(byte1 == 0xFF && byte2 == 0xFF);
 }
+
 void CheckShift_Test(){
 
 };
+
 void MeasurePressures_Test(){};
+
 void CalculateGear_Test()
 {
-
-  CurrentGear = 1;
-  for (int load = -10; load < 120; load++)
+  for (int g = 1; g < 5; g++)
   {
-    Load_Avg = load;
-    for (int speed = -10; speed < 120; speed++)
+    CurrentGear = g;
+    for (int load = -10; load < 120; load++)
     {
-      OSS_Avg_Speed = speed;
-      
-      assert(CalculateGear() > 0);  
-      assert(CalculateGear() < 5);
+      Load_Avg = load;
+      for (int speed = -10; speed < 120; speed++)
+      {
+        OSS_Avg_Speed = speed;
 
-      //we should never be in a gear higher than 1st at 0mph
-      if (speed < 1){
-        // assert(CalculateGear() == 1);
-      }
-        
-      //we should never be in a gear lower than 3 at 100mph
-      if (speed > 101){
-       // assert(CalculateGear() > 2);
-      }
+        assert(CalculateGear() > 0);
+        assert(CalculateGear() < 5);
 
+        // we should never be in a gear higher than 1st at 0mph
+        if (speed < 2)
+        {
+
+          // std::cout << CurrentGear << " ";
+          // std::cout << Load_Avg << " ";
+          // std::cout << OSS_Avg_Speed << " ";
+          // std::cout << CalculateGear() << " ";
+          // std::cout << std::endl;
+
+          // This fails for some reason at 1,100,0,2
+          // assert(CalculateGear() == 1);
+        }
+
+        // we should never be in a gear lower than 3 at 100mph
+        if (speed > 101)
+        {
+          // assert(CalculateGear() > 2);
+        }
+      }
     }
   }
 };
+
 void CalcShiftValue_Test(CurveName cname, double load);
+
 void CalcPressureValue_Test(Curve curve, double load);
+
 void getDoubleAverage_Test()
 {
   double arr1[1] = {(double)0.0};
@@ -132,7 +168,28 @@ void getDoubleAverage_Test()
   double arr2_3[2] = {.66666, 1};
   assert(getDoubleAverage(arr2_3, 2) == 0.83333);
 }
-void getDoubleAverageWithoutExtremeValues_Test();
+
+void getDoubleAverageWithoutExtremeValues_Test(){
+  int arr1[1] = {0};
+  assert(getDoubleAverageWithoutExtremeValues(arr1, 1) == 0);
+
+  int arr2[1] = {1};
+  assert(getDoubleAverageWithoutExtremeValues(arr2, 1) == 1);
+
+  int arr3[1] = {-1};
+  assert(getDoubleAverageWithoutExtremeValues(arr3, 1) == -1);
+
+  int arr4[2] = {1, 2};
+  assert(getDoubleAverageWithoutExtremeValues(arr4, 2) == 1);
+
+  int arr5[2] = {-1, 1};
+  assert(getDoubleAverageWithoutExtremeValues(arr5, 2) == 0);
+
+  int arr6[2] = {0, 100};
+  assert(getDoubleAverageWithoutExtremeValues(arr6, 2) == 50);
+  
+}
+
 void getAverage_Test()
 {
   int arr1[1] = {0};
@@ -150,6 +207,7 @@ void getAverage_Test()
   int arr5[2] = {-1, 1};
   assert(getAverage(arr5, 2) == 0);
 };
+
 void ManualMode_Test(){};
 
 #endif
