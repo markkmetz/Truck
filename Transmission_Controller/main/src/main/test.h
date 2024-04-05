@@ -19,7 +19,7 @@
 
 
 int main();
-
+void curve_Test();
 void Shift_Test();
 void MeasureSpeed_Test();
 void MeasureISS_Test();
@@ -27,7 +27,7 @@ void RegulateEPC_Test();
 void TCCLockup_Test();
 void SendCanData_Test();
 void PrintSerialData_Test();
-void splitIntoTwoBytes_Test(int value, byte &byte1, byte &byte2);
+void splitIntoTwoBytes_Test();
 void CheckShift_Test();
 void MeasurePressures_Test();
 void Shift_Test();

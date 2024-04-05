@@ -270,7 +270,6 @@ const int ISS_Smoothing = 10;
 const int OSS_Smoothing = 50;
 
 // Variables
-bool Load_Change = false; // not used except for testing? TODO
 double Load_Avg = 0;
 int FuelLevel;
 int OilPressure;
@@ -1044,8 +1043,6 @@ void ManualMode()
     Load_Avg = Load_Avg + 3;
     Serial.print("Load is set to: ");
     Serial.println(Load_Avg);
-
-    Load_Change = true;
     break;
   }
   case 76: // L --decrement fake load data
@@ -1053,8 +1050,6 @@ void ManualMode()
     Load_Avg = Load_Avg - 3;
     Serial.print("Load is set to: ");
     Serial.println(Load_Avg);
-
-    Load_Change = true;
     break;
   }
   case 99: // c --calc shift

@@ -35,6 +35,28 @@ struct Curve
   int shiftLengthScaler; // Not used yet
 };
 
+extern Curve bettercurves[6];
+
+extern double OSS_Avg_Speed;
+extern double ISS_Avg_Speed;
+extern int OSS_Speed_Count;
+extern int ISS_Speed_Count;
+extern int OSS_Measure_Count;
+extern int ISS_Measure_Count;
+extern int OSSHigh;
+extern int ISSHigh;
+
+extern double Load_Avg;
+extern int FuelLevel;
+extern int OilPressure;
+extern int EPCPressure;
+extern int EPCPWM;
+extern int rpmValue;
+
+extern bool tccTimer;
+extern bool shifting;
+extern int CurrentGear;
+
 void arduinosetup();
 void arduinoloop();
 
