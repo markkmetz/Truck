@@ -117,7 +117,7 @@ def power_on(filepath,values):
             integers = content.split(',')
             values['Odometer'], values['Tripometer'] = map(int, integers)
         with open("token.txt", 'r') as file:
-            APP_TOKEN = file.read()
+            APP_TOKEN = file.read().rstrip()
     except FileNotFoundError:
         replace_text(meters['Log'], f"File '{filepath}' not found. Please check the file path.")
     except ValueError:
