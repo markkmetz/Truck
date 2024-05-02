@@ -15,7 +15,11 @@ import numpy as np
 import os
 from queue import Queue
 import csv
+import dropbox
+from dropbox import DropboxOAuth2FlowNoRedirect
+import requests
 
+APP_TOKEN = ""
 
 os_type = platform.system()
 bus = None
@@ -74,13 +78,22 @@ logfilename = datetime.now().strftime("%m%d%y_%H%M")
 logfilename = logfilename + ".csv"
 odofilename = 'miles.odo'
 
+def find_csv_filenames(path_to_dir, suffix=".csv"):
+    
+    if len(path_to_dir) > 0:
+        filenames = os.listdir(path_to_dir)
+    else:
+        filenames = os.listdir()
+
+    return [filename for filename in filenames if filename.endswith(suffix)]
+
 def toggle_led(led):
     if led.cget("bg") == "gray":
         led.config(bg="green")
     else:
         led.config(bg="gray")
 
-def power_off(filepath,values):
+def power_off(filepath,values,restart = False):
     try:
         with open(filepath, 'w') as file:
             file.write(str(int(values['Odometer'])) + ',' + str(int(values['Tripometer'])))
@@ -92,7 +105,10 @@ def power_off(filepath,values):
 
     #TODO upload csv files
     upload_csv()
-    os.system('sudo shutdown -h now')
+    if restart:
+        os.system('sudo shutdown -r now')    
+    else:
+        os.system('sudo shutdown -h now')
     quit()
 
 def power_on(filepath,values):
@@ -101,6 +117,8 @@ def power_on(filepath,values):
             content = file.read()
             integers = content.split(',')
             values['Odometer'], values['Tripometer'] = map(int, integers)
+        with open("token.txt", 'r') as file:
+            APP_TOKEN = file.read()
     except FileNotFoundError:
         replace_text(meters['Log'], f"File '{filepath}' not found. Please check the file path.")
     except ValueError:
@@ -109,9 +127,24 @@ def power_on(filepath,values):
     #TODO upload csv files
     upload_csv()
 
+def checkforupdates():
+    # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
+    os.system('curl -O https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py')
+
 def upload_csv():
-    #TODO upload csv files
-    print("TODO...")
+    try:
+        with dropbox.Dropbox(APP_TOKEN) as dbx:
+            dbx.users_get_current_account()
+
+            csv_files = find_csv_filenames("",".csv")
+            for name in csv_files:
+                with open(name, 'rb') as f:
+                    print(name)
+                    dbx.files_upload(f.read(),"/Truck_Logs/"+name)
+                dbx.files_get_metadata("/Truck_Logs/"+name)
+                os.remove(name)
+    except:
+        print("dropbox upload failed")
 
 def screen_on():
     os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
@@ -219,8 +252,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
             values['Tripometer'] = values['Tripometer'] +  calculate_distance(values['RPM'],200)
 
             meters['cnv'].draw()
-            out_q.put(values)
-            
+            out_q.put(values)       
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
