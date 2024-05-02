@@ -130,6 +130,7 @@ def power_on(filepath,values):
 
 def checkforupdates():
     # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
+    replace_text(meters['Log'],"grabbing latest file")
     os.system('curl -O https://raw.githubusercontent.com/markkmetz/Truck/cpp_ino_seperation/Dash/main.py')
 
 def upload_csv():
@@ -140,7 +141,7 @@ def upload_csv():
             csv_files = find_csv_filenames("",".csv")
             for name in csv_files:
                 with open(name, 'rb') as f:
-                    print(name)
+                    replace_text(meters['Log'],name)
                     dbx.files_upload(f.read(),"/Truck_Logs/"+name)
                 dbx.files_get_metadata("/Truck_Logs/"+name)
                 os.remove(name)
