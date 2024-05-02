@@ -34,7 +34,10 @@ from matplotlib.figure import Figure
 
 app = ttk.Window()
 style = ttk.Style(theme='darkly')
-#app.attributes('-fullscreen', True)
+
+if os_type == "Linux":
+    app.attributes('-fullscreen', True)
+
 frame = ttk.Frame(app, width=1920, height=515)
 frame.pack()
 large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
