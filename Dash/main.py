@@ -16,8 +16,6 @@ import os
 from queue import Queue
 import csv
 import dropbox
-from dropbox import DropboxOAuth2FlowNoRedirect
-import requests
 
 APP_TOKEN = ""
 
@@ -93,7 +91,7 @@ def toggle_led(led):
     else:
         led.config(bg="gray")
 
-def power_off(filepath,values,restart = False):
+def power_off(filepath,values):
     try:
         with open(filepath, 'w') as file:
             file.write(str(int(values['Odometer'])) + ',' + str(int(values['Tripometer'])))
@@ -105,10 +103,11 @@ def power_off(filepath,values,restart = False):
 
     #TODO upload csv files
     upload_csv()
-    if restart:
-        os.system('sudo shutdown -r now')    
-    else:
-        os.system('sudo shutdown -h now')
+    try:
+        checkforupdates()
+    except:
+        print("error checking for updates")
+    os.system('sudo shutdown -h now')
     quit()
 
 def power_on(filepath,values):
@@ -126,10 +125,11 @@ def power_on(filepath,values):
 
     #TODO upload csv files
     upload_csv()
+    checkforupdates()
 
 def checkforupdates():
     # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
-    os.system('curl -O https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py')
+    os.system('curl -O https://raw.githubusercontent.com/markkmetz/Truck/cpp_ino_seperation/Dash/main.py')
 
 def upload_csv():
     try:
