@@ -78,7 +78,7 @@ void CheckShift();
 void MeasurePressures();
 void Shift();
 int CalculateGear();
-double CalcShiftValue(CurveName cname, double load);
+double CalcShiftValue(int cname, double load);
 double CalcPressureValue(Curve curve, double load);
 double getDoubleAverage(double arr[], int size);
 int getDoubleAverageWithoutExtremeValues(int arr[], int size);

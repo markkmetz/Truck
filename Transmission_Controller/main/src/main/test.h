@@ -1,7 +1,6 @@
 #ifndef _TEST_H
 #define _TEST_H
 
-
 #include "main.h"
 
 
@@ -32,8 +31,8 @@ void CheckShift_Test();
 void MeasurePressures_Test();
 void Shift_Test();
 void CalculateGear_Test();
-void CalcShiftValue_Test(CurveName cname, double load);
-void CalcPressureValue_Test(Curve curve, double load);
+void CalcShiftValue_Test();
+void CalcPressureValue_Test();
 void getDoubleAverage_Test();
 void getDoubleAverageWithoutExtremeValues_Test();
 void getAverage_Test();

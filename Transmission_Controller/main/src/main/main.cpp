@@ -7,11 +7,9 @@
 MockSerial Serial;
 #endif
 
-
 const String VERSION = "02.22.24.1";
 // const bool ENABLE_CAN_BUS;
-//int count = 11;
-
+// int count = 11;
 
 // https://github.com/autowp/arduino-mcp2515
 
@@ -55,7 +53,6 @@ struct BroadcastPacket
 };
 
 BroadcastPacket bp = {};
-
 
 enum ShiftMode
 {
@@ -340,7 +337,6 @@ void arduinosetup()
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
-
 
   Serial.begin(9600);
   Serial.println(VERSION);
@@ -878,24 +874,26 @@ int CalculateGear()
 }
 
 // Calulate the y value (speed) from the shift curves.
-double CalcShiftValue(CurveName cname, double load)
+double CalcShiftValue(int cname, double load)
 {
+ //bettercurves[cname].shiftPoints = [3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28]
 
+  load = constrain(load,0,100);
   int l2 = load / 10;
-  double m2 = (bettercurves[cname].shiftPoints[l2 + 1] - bettercurves[cname].shiftPoints[l2]);
-  int b = bettercurves[cname].shiftPoints[l2] - l2 * m2;
-
-  return (m2 * l2) + bettercurves[cname].shiftPoints[l2];
+  double dif = (bettercurves[cname].shiftPoints[l2 + 1] - bettercurves[cname].shiftPoints[l2]); 
+  double m2 = dif /10;
+  double b = double(bettercurves[cname].shiftPoints[l2]) - m2 * l2*10;
+  return double(m2 * load + b);
 }
 
 double CalcPressureValue(Curve curve, double load)
 {
-
+  load = constrain(load,0,100);
   int l2 = load / 10;
-  double m2 = (curve.pressurePoints[l2 + 1] - curve.pressurePoints[l2]);
-  int b = curve.pressurePoints[l2] - l2 * m2;
-
-  return (m2 * l2) + curve.pressurePoints[l2];
+  double dif = (curve.pressurePoints[l2 + 1] - curve.pressurePoints[l2]);
+  double m2 = dif / 10;
+  double b = double(curve.pressurePoints[l2]) - m2 * l2*10;
+  return double(m2 * load + b);
 }
 
 double getDoubleAverage(double arr[], int size)

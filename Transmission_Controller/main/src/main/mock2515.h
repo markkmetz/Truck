@@ -84,7 +84,11 @@ static uint32_t pulseIn(int i, byte j){
 }
 
 static double constrain(double amt, double low, double high){
-    return 0.0;
+    if(amt < low)
+    return low;
+    else if(amt >  high)
+    return high;
+    else return amt;
 }
 
 #define PIN_A0   (54)

@@ -13,6 +13,8 @@ int main()
   CalculateGear_Test();
   MeasureSpeed_Test();
   getDoubleAverageWithoutExtremeValues_Test();
+  CalcPressureValue_Test();
+  CalcShiftValue_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;
@@ -144,9 +146,39 @@ void CalculateGear_Test()
   }
 };
 
-void CalcShiftValue_Test(CurveName cname, double load);
+void CalcShiftValue_Test(){
+  for (int c = 0; c < 1; c++)
+  {
+    for (int i = -10; i < 110; i++)
+    {
+      double val = CalcShiftValue(c,i);
+      if(i > 1){
+        double val2 =  CalcShiftValue(c,i-1);
+        assert(val2-val <5);
+      }
+      assert(val >= 0);
+      assert(val < 100);
+    }
+  }
+}
 
-void CalcPressureValue_Test(Curve curve, double load);
+void CalcPressureValue_Test()
+{
+  for (int c = 0; c < 6; c++)
+  {
+    for (int i = -10; i < 110; i++)
+    {
+      double val = CalcPressureValue(bettercurves[c],i);
+      //Test to make sure that the curve curves rather then steps.
+      if(i > 1){
+        double val2 =  CalcPressureValue(bettercurves[c],i-1);
+        assert(val2-val <5);
+      }
+      assert(val >= 0);
+      assert(val < 100);
+    }
+  }
+}
 
 void getDoubleAverage_Test()
 {
@@ -169,7 +201,8 @@ void getDoubleAverage_Test()
   assert(getDoubleAverage(arr2_3, 2) == 0.83333);
 }
 
-void getDoubleAverageWithoutExtremeValues_Test(){
+void getDoubleAverageWithoutExtremeValues_Test()
+{
   int arr1[1] = {0};
   assert(getDoubleAverageWithoutExtremeValues(arr1, 1) == 0);
 
@@ -187,7 +220,6 @@ void getDoubleAverageWithoutExtremeValues_Test(){
 
   int arr6[2] = {0, 100};
   assert(getDoubleAverageWithoutExtremeValues(arr6, 2) == 50);
-  
 }
 
 void getAverage_Test()
