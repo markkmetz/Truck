@@ -15,8 +15,6 @@
 #include <assert.h>
 
 
-
-
 int main();
 void curve_Test();
 void Shift_Test();

@@ -15,6 +15,7 @@ int main()
   getDoubleAverageWithoutExtremeValues_Test();
   CalcPressureValue_Test();
   CalcShiftValue_Test();
+  RegulateEPC_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;
@@ -68,7 +69,21 @@ void MeasureSpeed_Test()
 
 void MeasureISS_Test(){};
 
-void RegulateEPC_Test(){};
+void RegulateEPC_Test()
+{
+  EPCPressure = EPCSetpoint + 1;
+  shiftingTimer.isRunning = false;
+  shiftingPID.clear();
+
+  for (int i = 0; i < 100; i++)
+  {
+    Load_Avg = i;
+    RegulateEPC();
+    std::cout << EPCPWM;
+    std::cout << " \n";
+  }
+  // shiftingTimer.isRunning = True;
+};
 
 void TCCLockup_Test(){};
 
@@ -146,15 +161,17 @@ void CalculateGear_Test()
   }
 };
 
-void CalcShiftValue_Test(){
+void CalcShiftValue_Test()
+{
   for (int c = 0; c < 1; c++)
   {
     for (int i = -10; i < 110; i++)
     {
-      double val = CalcShiftValue(c,i);
-      if(i > 1){
-        double val2 =  CalcShiftValue(c,i-1);
-        assert(val2-val <5);
+      double val = CalcShiftValue(c, i);
+      if (i > 1)
+      {
+        double val2 = CalcShiftValue(c, i - 1);
+        assert(val2 - val < 5);
       }
       assert(val >= 0);
       assert(val < 100);
@@ -168,11 +185,12 @@ void CalcPressureValue_Test()
   {
     for (int i = -10; i < 110; i++)
     {
-      double val = CalcPressureValue(bettercurves[c],i);
-      //Test to make sure that the curve curves rather then steps.
-      if(i > 1){
-        double val2 =  CalcPressureValue(bettercurves[c],i-1);
-        assert(val2-val <5);
+      double val = CalcPressureValue(bettercurves[c], i);
+      // Test to make sure that the curve curves rather then steps.
+      if (i > 1)
+      {
+        double val2 = CalcPressureValue(bettercurves[c], i - 1);
+        assert(val2 - val < 5);
       }
       assert(val >= 0);
       assert(val < 100);
