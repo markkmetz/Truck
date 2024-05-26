@@ -136,18 +136,18 @@ def checkforupdates():
 
 def upload_csv():
     try:
-        replace_text(meters['Log'],"starting")
+        #replace_text(meters['Log'],"starting")
         time.sleep(1)
         with dropbox.Dropbox(APP_TOKEN) as dbx:
-            replace_text(meters['Log'],"2")
+           # replace_text(meters['Log'],"2")
             time.sleep(1)
             dbx.users_get_current_account()
-            replace_text(meters['Log'],"starting")
+            #replace_text(meters['Log'],"starting")
             time.sleep(1)
             csv_files = find_csv_filenames("",".csv")
             for name in csv_files:
                 with open(name, 'rb') as f:
-                    replace_text(meters['Log'],name)
+            #        replace_text(meters['Log'],name)
                     dbx.files_upload(f.read(),"/Truck_Logs/"+name)
                 dbx.files_get_metadata("/Truck_Logs/"+name)
                 os.remove(name)
