@@ -126,8 +126,10 @@ def power_on(filepath,values):
 
     #TODO upload csv files
     upload_csv()
-    time.sleep(10)
+    print("here")
     checkforupdates()
+    print("here2")
+    time.sleep(10)
 
 def checkforupdates():
     # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
