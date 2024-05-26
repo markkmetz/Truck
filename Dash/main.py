@@ -208,7 +208,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
-                    values['Fuel'] = round(canMsg.data[7]/2.55)
+                    values['Fuel'] = round(canMsg.data[7]/0.255)
                     #update the chart?
                     #meters['cnv'].draw()
 
