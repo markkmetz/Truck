@@ -125,6 +125,7 @@ def power_on(filepath,values):
         replace_text(meters['Log'], "Error: The file does not contain valid integers separated by a comma.")
 
     #TODO upload csv files
+    print("ahah")
     upload_csv()
     print("here")
     checkforupdates()
