@@ -126,6 +126,7 @@ def power_on(filepath,values):
 
     #TODO upload csv files
     upload_csv()
+    time.sleep(10)
     checkforupdates()
 
 def checkforupdates():
