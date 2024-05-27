@@ -71,6 +71,12 @@ void MeasureISS_Test(){};
 
 void RegulateEPC_Test()
 {
+
+  double values[5] {53.0,2237,57.0,4.0,192.0};
+  std::cout << "Test";
+  std::cout << epc_predict(values);
+
+
   EPCPressure = EPCSetpoint + 1;
   shiftingTimer.isRunning = false;
   shiftingPID.clear();
@@ -79,8 +85,8 @@ void RegulateEPC_Test()
   {
     Load_Avg = i;
     RegulateEPC();
-    std::cout << EPCPWM;
-    std::cout << " \n";
+    //std::cout << EPCPWM;
+    //std::cout << " \n";
   }
   // shiftingTimer.isRunning = True;
 };

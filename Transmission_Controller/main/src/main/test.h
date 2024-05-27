@@ -2,7 +2,7 @@
 #define _TEST_H
 
 #include "main.h"
-
+#include "epc.h"
 
 
 #ifndef TEST
