@@ -125,8 +125,12 @@ def power_on(filepath,values):
         replace_text(meters['Log'], "Error: The file does not contain valid integers separated by a comma.")
 
     #TODO upload csv files
+    print("ahah")
     upload_csv()
+    print("here")
     checkforupdates()
+    print("here2")
+    time.sleep(10)
 
 def checkforupdates():
     # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
@@ -135,13 +139,18 @@ def checkforupdates():
 
 def upload_csv():
     try:
+        #replace_text(meters['Log'],"starting")
+        time.sleep(1)
         with dropbox.Dropbox(APP_TOKEN) as dbx:
+           # replace_text(meters['Log'],"2")
+            time.sleep(1)
             dbx.users_get_current_account()
-
+            #replace_text(meters['Log'],"starting")
+            time.sleep(1)
             csv_files = find_csv_filenames("",".csv")
             for name in csv_files:
                 with open(name, 'rb') as f:
-                    replace_text(meters['Log'],name)
+            #        replace_text(meters['Log'],name)
                     dbx.files_upload(f.read(),"/Truck_Logs/"+name)
                 dbx.files_get_metadata("/Truck_Logs/"+name)
                 os.remove(name)
@@ -203,7 +212,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
-                    values['Fuel'] = round(canMsg.data[7]/2.55)
+                    values['Fuel'] = round(canMsg.data[7]/0.255)
                     #update the chart?
                     #meters['cnv'].draw()
 
