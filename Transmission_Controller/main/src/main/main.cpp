@@ -71,7 +71,6 @@ Curve bettercurves[6] = {
     {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1},
     {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1}};
 
-
 PID inGearPID(.25, 0.2, 0.2);
 PID shiftingPID(1, 1, 1);
 
@@ -106,6 +105,7 @@ int OilPressure;
 int EPCPressure;
 int EPCPWM = 0;
 int rpmValue;
+int enginetemp;
 
 int ISS[ISS_Smoothing];
 int OSS[OSS_Smoothing];
@@ -220,6 +220,10 @@ void arduinoloop()
     else if (canMsg.can_id == 1520)
     {
       rpmValue = canMsg.data[7] | canMsg.data[6] << 8;
+    }
+    else if (canMsg.can_id == 1522)
+    {
+      enginetemp = canMsg.data[7] | canMsg.data[6] << 8;
     }
     else if (canMsg.can_id == 1601 && !shiftingTimer.isRunning && !postShiftTimer.isRunning)
     {
@@ -387,16 +391,13 @@ void RegulateEPC()
       }
     }
 
-    if (shiftingTimer.isRunning)
-    {
-      EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-      EPCPWM = 120 - shiftingPID.calculate(EPCSetpoint, EPCPressure);
-    }
-    else
-    {
-      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
-      EPCPWM = 80 - inGearPID.calculate(EPCSetpoint, EPCPressure);
-    }
+    EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
+    
+    //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
+    double features[5] = {EPCSetpoint, rpmValue, OSS_Avg_Speed, CurrentGear, enginetemp};
+    double predicted_pwm = epc_predict(features);
+
+    EPCPWM = predicted_pwm - shiftingPID.calculate(EPCSetpoint, EPCPressure);
 
     EPCPWM = constrain(EPCPWM, 0, 255);
 
@@ -710,23 +711,23 @@ int CalculateGear()
 // Calulate the y value (speed) from the shift curves.
 double CalcShiftValue(int cname, double load)
 {
- //bettercurves[cname].shiftPoints = [3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28]
+  // bettercurves[cname].shiftPoints = [3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28]
 
-  load = constrain(load,0,100);
+  load = constrain(load, 0, 100);
   int l2 = load / 10;
-  double dif = (bettercurves[cname].shiftPoints[l2 + 1] - bettercurves[cname].shiftPoints[l2]); 
-  double m2 = dif /10;
-  double b = double(bettercurves[cname].shiftPoints[l2]) - m2 * l2*10;
+  double dif = (bettercurves[cname].shiftPoints[l2 + 1] - bettercurves[cname].shiftPoints[l2]);
+  double m2 = dif / 10;
+  double b = double(bettercurves[cname].shiftPoints[l2]) - m2 * l2 * 10;
   return double(m2 * load + b);
 }
 
 double CalcPressureValue(Curve curve, double load)
 {
-  load = constrain(load,0,100);
+  load = constrain(load, 0, 100);
   int l2 = load / 10;
   double dif = (curve.pressurePoints[l2 + 1] - curve.pressurePoints[l2]);
   double m2 = dif / 10;
-  double b = double(curve.pressurePoints[l2]) - m2 * l2*10;
+  double b = double(curve.pressurePoints[l2]) - m2 * l2 * 10;
   return double(m2 * load + b);
 }
 
