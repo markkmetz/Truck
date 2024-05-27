@@ -343,6 +343,8 @@ def logdata(in_q):
 
 if enableDisplay:
     #region meters
+
+
     #-----------------------------------------------------
     #    TEMPERATURE
     meter = ttk.Meter(
@@ -619,6 +621,45 @@ if enableDisplay:
     my_button = ttk.Button(frame, text="Power Off", command=lambda: power_off(odofilename,values))
     my_button.place(x=1810,y=425,width=100)
     #my_button.pack()
+
+
+    #-----------------------------------------------------
+    #    BOOST
+    meter = ttk.Meter(
+        frame,
+        metersize=200,
+        padding=5,
+        amountused=1,
+        metertype="semi",
+        arcrange=180,
+        arcoffset=0,
+        amounttotal=20,
+        subtext='Boost',
+        interactive=False,
+        textright='Psi',
+        meterthickness=30
+    )
+    meter.place(x=400,y=-70)
+    meters['Boost'] = meter
+
+    #-----------------------------------------------------
+    #    AFR
+    meter = ttk.Meter(
+        frame,
+        metersize=200,
+        padding=5,
+        amountused=14.7,
+        metertype="semi",
+        arcrange=180,
+        arcoffset=0,
+        amounttotal=30,
+        subtext='AFR',
+        interactive=False,
+        textright='%',
+        meterthickness=30
+    )
+    meter.place(x=1300,y=-70)
+    meters['AFR'] = meter
 
 
     #-----------------------------------------------------

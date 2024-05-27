@@ -1,6 +1,8 @@
 #ifndef _MAIN_H
 #define _MAIN_H
 
+#include "epc.h"
+
 #ifndef TEST
 #include <mcp2515.h>
 #else
