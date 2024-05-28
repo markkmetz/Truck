@@ -15,7 +15,9 @@ import numpy as np
 import os
 from queue import Queue
 import csv
+import dropbox
 
+APP_TOKEN = ""
 
 os_type = platform.system()
 bus = None
@@ -34,7 +36,10 @@ from matplotlib.figure import Figure
 
 app = ttk.Window()
 style = ttk.Style(theme='darkly')
-#app.attributes('-fullscreen', True)
+
+if os_type == "Linux":
+    app.attributes('-fullscreen', True)
+
 frame = ttk.Frame(app, width=1920, height=515)
 frame.pack()
 large_font = ttk.font.Font(family='Helvetica', size=20, weight='bold')
@@ -71,6 +76,15 @@ logfilename = datetime.now().strftime("%m%d%y_%H%M")
 logfilename = logfilename + ".csv"
 odofilename = 'miles.odo'
 
+def find_csv_filenames(path_to_dir, suffix=".csv"):
+    
+    if len(path_to_dir) > 0:
+        filenames = os.listdir(path_to_dir)
+    else:
+        filenames = os.listdir()
+
+    return [filename for filename in filenames if filename.endswith(suffix)]
+
 def toggle_led(led):
     if led.cget("bg") == "gray":
         led.config(bg="green")
@@ -81,14 +95,18 @@ def power_off(filepath,values):
     try:
         with open(filepath, 'w') as file:
             file.write(str(int(values['Odometer'])) + ',' + str(int(values['Tripometer'])))
-        print(f"Data saved to {filepath}")
+        replace_text(meters['Log'], f"Data saved to {filepath}")
     except FileNotFoundError:
-        print(f"Error: File '{filepath}' not found.")
+        replace_text(meters['Log'], f"Error: File '{filepath}' not found.")
     except Exception as e:
-        print(f"Error: {e}")
+        replace_text(meters['Log'], f"Error: {e}")
 
     #TODO upload csv files
     upload_csv()
+    try:
+        checkforupdates()
+    except:
+        print("error checking for updates")
     os.system('sudo shutdown -h now')
     quit()
 
@@ -98,17 +116,46 @@ def power_on(filepath,values):
             content = file.read()
             integers = content.split(',')
             values['Odometer'], values['Tripometer'] = map(int, integers)
+        with open("token.txt", 'r') as file:
+            APP_TOKEN = file.read()
+            APP_TOKEN = APP_TOKEN.rstrip()
     except FileNotFoundError:
-        print(f"File '{filepath}' not found. Please check the file path.")
+        replace_text(meters['Log'], f"File '{filepath}' not found. Please check the file path.")
     except ValueError:
-        print("Error: The file does not contain valid integers separated by a comma.")
+        replace_text(meters['Log'], "Error: The file does not contain valid integers separated by a comma.")
 
     #TODO upload csv files
+    print("ahah")
     upload_csv()
+    print("here")
+    checkforupdates()
+    print("here2")
+    time.sleep(10)
+
+def checkforupdates():
+    # https://raw.githubusercontent.com/markkmetz/Truck/main/Dash/main.py
+    replace_text(meters['Log'],"grabbing latest file")
+    os.system('curl -O https://raw.githubusercontent.com/markkmetz/Truck/cpp_ino_seperation/Dash/main.py')
 
 def upload_csv():
-    #TODO upload csv files
-    print("TODO...")
+    try:
+        #replace_text(meters['Log'],"starting")
+        time.sleep(1)
+        with dropbox.Dropbox(APP_TOKEN) as dbx:
+           # replace_text(meters['Log'],"2")
+            time.sleep(1)
+            dbx.users_get_current_account()
+            #replace_text(meters['Log'],"starting")
+            time.sleep(1)
+            csv_files = find_csv_filenames("",".csv")
+            for name in csv_files:
+                with open(name, 'rb') as f:
+            #        replace_text(meters['Log'],name)
+                    dbx.files_upload(f.read(),"/Truck_Logs/"+name)
+                dbx.files_get_metadata("/Truck_Logs/"+name)
+                os.remove(name)
+    except:
+        print("dropbox upload failed")
 
 def screen_on():
     os.system('echo 0 | sudo tee /sys/class/backlight/rpi_backlight/bl_power')
@@ -165,7 +212,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['EPCPWM'] = canMsg.data[4]
                     #values['epcSetPointValue'] = canMsg.data[1]    5 
                     #values['ISS'] = canMsg.data[6 ]                6
-                    values['Fuel'] = round(canMsg.data[7]/2.55)
+                    values['Fuel'] = round(canMsg.data[7]/0.255)
                     #update the chart?
                     #meters['cnv'].draw()
 
@@ -207,33 +254,49 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                 values['TCC'] = 0
             else:
                 values['TCC'] = 1
-            
+
+            values['Fuel'] =11             
+            values['Voltage'] =10
+            values['Oil'] =50
+            values['Temp'] =221
             values['Odometer'] = values['Odometer'] + calculate_distance(values['RPM'],200)
             values['Tripometer'] = values['Tripometer'] +  calculate_distance(values['RPM'],200)
 
             meters['cnv'].draw()
-            out_q.put(values)
-            
+            out_q.put(values)       
 
 def update(meters,values):
     if meters['RPM'].amountusedvar.get() != values['RPM']:
         meters['RPM'].amountusedvar.set(values['RPM'])
+        if values['RPM'] < 500 or values['RPM'] > 5000:
+            meters['RPM'].configure(bootstyle='danger')
+        else:
+            meters['RPM'].configure(bootstyle='default')
     # if meters['Bar'].amountusedvar.get() != values['Bar']:
     #     meters['Bar'].amountusedvar.set(values['Bar'])
     # if meters['MAP'].amountusedvar.get() != values['MAP']:
     #     meters['MAP'].amountusedvar.set(values['MAP'])
     if meters['Temp'].amountusedvar.get() != values['Temp']:
         meters['Temp'].amountusedvar.set(values['Temp'])
+        if values['Temp'] > 220:
+            meters['Temp'].configure(bootstyle='danger')
+        else:
+            meters['Temp'].configure(bootstyle='default')
 
     if meters['TPS']['value'] != values['TPS']:
         meters['TPS']['value'] = values['TPS']
     #    meters['TPS'].configure(value= values['RPM'])
     if meters['Voltage'].amountusedvar.get() != values['Voltage']:
         meters['Voltage'].amountusedvar.set(values['Voltage'])
+        if values['Voltage'] < 11 or values['Voltage'] > 15:
+            meters['Voltage'].configure(bootstyle='danger')
+        else:
+            meters['Voltage'].configure(bootstyle='default')
+        
     if meters['MPH'].amountusedvar.get() != values['MPH']:
         meters['MPH'].amountusedvar.set(values['MPH'])
-    replace_text(meters['Trip'], values['Tripometer'])
-    replace_text(meters['Odo'], values['Odometer'])
+    replace_text(meters['Trip'], "{:.2f}".format(values['Tripometer']))
+    replace_text(meters['Odo'], "{:.2f}".format(values['Odometer']))
 
     if meters['EPCPSI'].amountusedvar.get() != values['EPCPSI']:
         meters['EPCPSI'].amountusedvar.set(values['EPCPSI'])
@@ -254,8 +317,20 @@ def update(meters,values):
 
     if meters['Fuel'].amountusedvar.get() != values['Fuel']:
         meters['Fuel'].amountusedvar.set(values['Fuel'])
+        if values['Fuel'] < 5:
+            meters['Fuel'].configure(bootstyle='danger')
+        elif values['Fuel'] < 15:
+            meters['Fuel'].configure(bootstyle='warning')
+        else:
+            meters['Fuel'].configure(bootstyle='default')
+        
+
     if meters['Oil'].amountusedvar.get() != values['Oil']:
         meters['Oil'].amountusedvar.set(values['Oil'])
+        if values['Oil'] < 20:
+            meters['Oil'].configure(bootstyle='danger')
+        else:
+            meters['Oil'].configure(bootstyle='default')
 
 
     app.after(10,update,meters,values)  
@@ -277,6 +352,8 @@ def logdata(in_q):
 
 if enableDisplay:
     #region meters
+
+
     #-----------------------------------------------------
     #    TEMPERATURE
     meter = ttk.Meter(
@@ -458,6 +535,21 @@ if enableDisplay:
     label = ttk.Label(frame, text="PWM", font=small_font)
     label.place(x=1885, y=180)
 
+    #-----------------------------------------------------
+    #   Acceleration and deceleration indicator
+    # decel doesn't work yet since ttk doesn't natively support right to left bars.
+
+    decelx = 585
+    decely = 420
+
+    progressbar = ttk.Progressbar(frame, value=0, orient='horizontal',length=170)
+    progressbar.place(x=decelx,y=decely,width=100)
+    meters['deceleration'] = progressbar
+
+    progressbar = ttk.Progressbar(frame, value=0, orient='horizontal',length=170)
+    progressbar.place(x=decelx+105,y=decely,width=100)
+    meters['deceleration'] = progressbar
+
 
     #-----------------------------------------------------
     #   GEAR indicator
@@ -516,14 +608,19 @@ if enableDisplay:
     text_box.insert('1.0',"Initialized.. Connecting to CAN...")
     meters['Log'] = text_box
 
+
+    label = ttk.Label(frame, text="Odometer", font=small_font)
+    label.place(x=750, y=350)
     odo = ttk.Text(frame, height=1)
-    odo.place(x=650,y=390,width=100)
+    odo.place(x=750,y=370,width=100)
     odo.tag_configure('right', justify='right')
     odo.insert('0.0',"347,349")
     meters['Odo'] = odo
 
+    label = ttk.Label(frame, text="Tripometer", font=small_font)
+    label.place(x=550, y=350)
     trip = ttk.Text(frame, height=1)
-    trip.place(x=650,y=360,width=100)
+    trip.place(x=550,y=370,width=100)
     trip.tag_configure('right', justify='right')
     trip.insert('0.0',"0.0010")
     meters['Trip'] = trip
@@ -531,8 +628,47 @@ if enableDisplay:
     #-----------------------------------------------------
 
     my_button = ttk.Button(frame, text="Power Off", command=lambda: power_off(odofilename,values))
-    my_button.place(x=1050,y=360,width=100)
+    my_button.place(x=1810,y=425,width=100)
     #my_button.pack()
+
+
+    #-----------------------------------------------------
+    #    BOOST
+    meter = ttk.Meter(
+        frame,
+        metersize=200,
+        padding=5,
+        amountused=1,
+        metertype="semi",
+        arcrange=180,
+        arcoffset=0,
+        amounttotal=20,
+        subtext='Boost',
+        interactive=False,
+        textright='Psi',
+        meterthickness=30
+    )
+    meter.place(x=400,y=-70)
+    meters['Boost'] = meter
+
+    #-----------------------------------------------------
+    #    AFR
+    meter = ttk.Meter(
+        frame,
+        metersize=200,
+        padding=5,
+        amountused=14.7,
+        metertype="semi",
+        arcrange=180,
+        arcoffset=0,
+        amounttotal=30,
+        subtext='AFR',
+        interactive=False,
+        textright='%',
+        meterthickness=30
+    )
+    meter.place(x=1300,y=-70)
+    meters['AFR'] = meter
 
 
     #-----------------------------------------------------

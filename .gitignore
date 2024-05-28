@@ -1,1 +1,6 @@
 *.csv
+*.exe
+*.obj
+*.pdb
+*.odo
+/Logs
