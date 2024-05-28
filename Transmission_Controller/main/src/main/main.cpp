@@ -119,7 +119,7 @@ void PID::clear()
   lastOutput = 0;
 }
 
-PID inGearPID(.25, 0.2, 0.2);
+PID inGearPID(.025, 0.02, 0.02);
 PID shiftingPID(1, 1, 1);
 
 int EPCSetpoint = 30;
@@ -260,6 +260,8 @@ void arduinoloop()
 
   SendCanData();
 
+
+  PrintPIDData();
   // PrintSerialData();
 }
 
@@ -363,7 +365,7 @@ void RegulateEPC()
       EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
     }
 
-    EPCPWM = constrain(EPCPWM, 10, 210);
+    EPCPWM = constrain(EPCPWM, 50, 200);
 
     if (PreviousEPCPWM != EPCPWM)
     {
@@ -576,15 +578,15 @@ void PrintPIDData(){
 
 Serial.print("0: ");
 Serial.print((int)ShiftingPids[0].lastOutput);
-Serial.print(",1: ");
+Serial.print(" ,1: ");
 Serial.print((int)ShiftingPids[1].lastOutput);
-Serial.print(",2: ");
+Serial.print(" ,2: ");
 Serial.print((int)ShiftingPids[2].lastOutput);
-Serial.print(",3: ");
+Serial.print(" ,3: ");
 Serial.print((int)ShiftingPids[3].lastOutput);
-Serial.print(",4: ");
+Serial.print(" ,4: ");
 Serial.print((int)ShiftingPids[4].lastOutput);
-Serial.print(",5: ");
+Serial.print(" ,5: ");
 Serial.println((int)ShiftingPids[5].lastOutput);
 
 }

@@ -216,6 +216,7 @@ void splitIntoTwoBytes(int value, byte &byte1, byte &byte2);
 void CheckShift();
 void MeasurePressures();
 void Shift();
+void PrintPIDData();
 void ReceiveCanData();
 int CalculateGear();
 double CalcShiftValue(int cname, double load);
