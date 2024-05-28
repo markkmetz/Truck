@@ -81,10 +81,10 @@ PID ShiftingPids[6] = {
 };
 
 PID InGearPids[4]{
-    PID(.05, .05, .05),
-    PID(.05, .05, .05),
-    PID(.05, .05, .05),
-    PID(.05, .05, .05)
+    PID(.02, .02, .02),
+    PID(.02, .02, .02),
+    PID(.02, .02, .02),
+    PID(.02, .02, .02)
 };
 
 int PID::calculate(double setpoint, double pv)
@@ -126,8 +126,8 @@ void PID::clear()
   lastOutput = 0;
 }
 
-PID inGearPID(.025, 0.02, 0.02);
-PID shiftingPID(1, 1, 1);
+// PID inGearPID(.025, 0.02, 0.02);
+// PID shiftingPID(1, 1, 1);
 
 int EPCSetpoint = 30;
 
@@ -581,18 +581,18 @@ void PrintSerialData()
 
 void PrintPIDData(){
 
-// Serial.print("0: ");
-// Serial.print((int)ShiftingPids[0].lastOutput);
-// Serial.print(" ,1: ");
-// Serial.print((int)ShiftingPids[1].lastOutput);
-// Serial.print(" ,2: ");
-// Serial.print((int)ShiftingPids[2].lastOutput);
-// Serial.print(" ,3: ");
-// Serial.print((int)ShiftingPids[3].lastOutput);
-// Serial.print(" ,4: ");
-// Serial.print((int)ShiftingPids[4].lastOutput);
-// Serial.print(" ,5: ");
-// Serial.println((int)ShiftingPids[5].lastOutput);
+Serial.print("FirstUP:");
+Serial.print((int)ShiftingPids[0].lastOutput);
+Serial.print("SecondDown:");
+Serial.print((int)ShiftingPids[1].lastOutput);
+Serial.print("SecondUp:");
+Serial.print((int)ShiftingPids[2].lastOutput);
+Serial.print("ThirdDown:");
+Serial.print((int)ShiftingPids[3].lastOutput);
+Serial.print("ThirdUp:");
+Serial.print((int)ShiftingPids[4].lastOutput);
+Serial.print("FourthDown:");
+Serial.println((int)ShiftingPids[5].lastOutput);
 
 Serial.print("1st:");
 Serial.print((int)InGearPids[0].lastOutput);
@@ -643,8 +643,8 @@ void Shift()
   //  4 1/1
 
   // clear the pid error and output
-  inGearPID.clear();
-  shiftingPID.clear();
+  // inGearPID.clear();
+  // shiftingPID.clear();
 
   if (CurrentGear - CommandedGear > 1)
   {
