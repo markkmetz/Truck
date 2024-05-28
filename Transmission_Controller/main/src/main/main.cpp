@@ -7,7 +7,7 @@
 MockSerial Serial;
 #endif
 
-const String VERSION = "02.22.24.1";
+const String VERSION = "05.27.24.1";
 // const bool ENABLE_CAN_BUS;
 // int count = 11;
 
