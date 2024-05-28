@@ -399,7 +399,7 @@ void RegulateEPC()
 
     EPCPWM = predicted_pwm - shiftingPID.calculate(EPCSetpoint, EPCPressure);
 
-    EPCPWM = constrain(EPCPWM, 0, 255);
+    EPCPWM = constrain(EPCPWM, 10, 210);
 
     if (PreviousEPCPWM != EPCPWM)
     {

@@ -16,10 +16,45 @@ int main()
   CalcPressureValue_Test();
   CalcShiftValue_Test();
   RegulateEPC_Test();
+  //This takes a while. and can be detected as a virus.
+  //epc_predict_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;
 }
+
+void epc_predict_Test(){
+  //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
+
+  int max = 0;
+  int min = 100;
+  for(int epcpsi = 10; epcpsi < 100; epcpsi++){
+    for(int rpm = 500; rpm < 4000; rpm = rpm++){
+      for(int mph = 1; mph < 100; mph++){
+        for(int gear = 1; gear < 5; gear++){
+          for(int temp = 1; temp < 200; temp++){
+            double values[5] {epcpsi,rpm,mph,gear,temp};
+
+            int x = epc_predict(values);
+
+            if( x < min)
+              min = x;
+
+            if(x > max)
+              max = x;
+
+            assert(x >= 0);
+            assert(x <= 100);
+          }
+        }
+      }
+    }
+  }
+  std::cout << max;
+  std::cout << min;
+
+}
+
 
 void curve_Test()
 {
@@ -71,10 +106,6 @@ void MeasureISS_Test(){};
 
 void RegulateEPC_Test()
 {
-
-  double values[5] {53.0,2237,57.0,4.0,192.0};
-  std::cout << "Test";
-  std::cout << epc_predict(values);
 
 
   EPCPressure = EPCSetpoint + 1;

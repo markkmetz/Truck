@@ -35,6 +35,7 @@ void getDoubleAverage_Test();
 void getDoubleAverageWithoutExtremeValues_Test();
 void getAverage_Test();
 void ManualMode_Test();
+void epc_predict_Test();
 
 #endif
 #endif
