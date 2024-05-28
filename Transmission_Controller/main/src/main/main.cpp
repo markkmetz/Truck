@@ -64,12 +64,12 @@ enum ShiftMode
 };
 
 Curve bettercurves[6] = {
-    {FirstUP, {3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-    {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 1},
-    {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 1},
-    {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1},
-    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1},
-    {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1}};
+    {FirstUP, {3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 500},
+    {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 500},
+    {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 500},
+    {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1000},
+    {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1000},
+    {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1000}};
 
 PID ShiftingPids[6] = {
     PID(.05, .05, .05),
@@ -78,6 +78,13 @@ PID ShiftingPids[6] = {
     PID(.05, .05, .05),
     PID(.05, .05, .05),
     PID(.05, .05, .05),
+};
+
+PID InGearPids[4]{
+    PID(.05, .05, .05),
+    PID(.05, .05, .05),
+    PID(.05, .05, .05),
+    PID(.05, .05, .05)
 };
 
 int PID::calculate(double setpoint, double pv)
@@ -345,13 +352,9 @@ void RegulateEPC()
       }
     }
 
-    if (shiftingTimer.isRunning)
+    if (shiftingTimer.isRunning || postShiftTimer.isRunning)
     {
       EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-
-      //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
-      double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
-      double predicted_pwm = epc_predict(features);
       EPCPWM = 122 - ShiftingPids[shiftingTimer.ShiftCurve.curvename].calculate(EPCSetpoint, EPCPressure);
     }
     else
@@ -360,9 +363,11 @@ void RegulateEPC()
       EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
 
       //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
-      double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
-      double predicted_pwm = epc_predict(features);
-      EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
+      // double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
+      // double predicted_pwm = epc_predict(features);
+      //EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
+
+      EPCPWM = 122 - InGearPids[CurrentGear].calculate(EPCSetpoint,EPCPressure);
     }
 
     EPCPWM = constrain(EPCPWM, 50, 200);
@@ -576,18 +581,27 @@ void PrintSerialData()
 
 void PrintPIDData(){
 
-Serial.print("0: ");
-Serial.print((int)ShiftingPids[0].lastOutput);
-Serial.print(" ,1: ");
-Serial.print((int)ShiftingPids[1].lastOutput);
-Serial.print(" ,2: ");
-Serial.print((int)ShiftingPids[2].lastOutput);
-Serial.print(" ,3: ");
-Serial.print((int)ShiftingPids[3].lastOutput);
-Serial.print(" ,4: ");
-Serial.print((int)ShiftingPids[4].lastOutput);
-Serial.print(" ,5: ");
-Serial.println((int)ShiftingPids[5].lastOutput);
+// Serial.print("0: ");
+// Serial.print((int)ShiftingPids[0].lastOutput);
+// Serial.print(" ,1: ");
+// Serial.print((int)ShiftingPids[1].lastOutput);
+// Serial.print(" ,2: ");
+// Serial.print((int)ShiftingPids[2].lastOutput);
+// Serial.print(" ,3: ");
+// Serial.print((int)ShiftingPids[3].lastOutput);
+// Serial.print(" ,4: ");
+// Serial.print((int)ShiftingPids[4].lastOutput);
+// Serial.print(" ,5: ");
+// Serial.println((int)ShiftingPids[5].lastOutput);
+
+Serial.print("1st:");
+Serial.print((int)InGearPids[0].lastOutput);
+Serial.print(",2nd:");
+Serial.print((int)InGearPids[1].lastOutput);
+Serial.print(",3rd:");
+Serial.print((int)InGearPids[2].lastOutput);
+Serial.print(",4th:");
+Serial.print((int)InGearPids[3].lastOutput);
 
 }
 
@@ -702,7 +716,7 @@ void Shift()
     digitalWrite(SOL_B_Pin, HIGH);
     CurrentGear = 4;
   }
-  postShiftTimer.start(1000);
+  postShiftTimer.start(shiftingTimer.ShiftCurve.shiftLengthScaler);
 }
 
 int CalculateGear()
