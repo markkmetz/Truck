@@ -71,6 +71,45 @@ Curve bettercurves[6] = {
     {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1},
     {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1}};
 
+int PID::calculate(double setpoint, double pv)
+{
+  // Calculate error
+  double error = setpoint - pv;
+
+  // Proportional term
+  double Pout = Kp * error;
+
+  // clamping the Integral term
+
+  integral += error;
+
+  integral = constrain(integral, -1000, 1000);
+
+  double Iout = Ki * integral;
+
+  // Derivative term
+  double derivative = (error - pre_error);
+  double Dout = Kd * derivative;
+
+  // Calculate total output
+  int output = (int)Pout + Iout + Dout;
+
+  // Save error to next loop
+  pre_error = error;
+
+  // clamp the output
+  lastOutput = output;
+  output = constrain(output, -255, 255);
+
+  return output;
+}
+void PID::clear()
+{
+  integral = 0;
+  pre_error = 0;
+  lastOutput = 0;
+}
+
 PID inGearPID(.25, 0.2, 0.2);
 PID shiftingPID(1, 1, 1);
 
@@ -138,7 +177,7 @@ bool enabletcc = false;
 bool enabletestshifting = false;
 int ShiftMode = Manual;
 
-bool loggingenabled = 1;
+bool loggingenabled = 0;
 int cmd = -1;
 
 // Timers
@@ -208,8 +247,143 @@ void arduinoloop()
     TCCLockup();
   }
 
-  // TODO break this out into a function. inside getcanpacket it does global var stuff
-  // BroadcastPacket lol = GetCanPacket();
+  ReceiveCanData();
+
+  SendCanData();
+
+  // PrintSerialData();
+}
+
+void MeasureSpeed()
+{
+  unsigned long duration = pulseIn(OSS_Pin, HIGH);
+  int s;
+  if (duration > 0)
+  {
+    float frequency = 1000000.0 / (1.0 * duration);
+    s = 6.283185307 * (TireSize / 4.00) * (((frequency / OSS_Holes) * GearRatio) / 60) * .1;
+  }
+  else
+  {
+    s = 0;
+  }
+
+  if (s < 140 && s > -1)
+    OSS_Speeds[OSS_Speed_Count] = s;
+  else
+    OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
+
+  if (OSS_Speed_Count < OSS_Smoothing - 1)
+    OSS_Speed_Count++;
+  else
+  {
+    // for (int i = 0; i < OSS_Smoothing; i++)
+    // {
+    //   Serial.print(OSS_Speeds[i]);
+    //   Serial.print(",");
+    // }
+    // Serial.println("");
+    OSS_Speed_Count = 0;
+  }
+
+  double newspeed = getDoubleAverageWithoutExtremeValues(OSS_Speeds, OSS_Smoothing);
+  OSS_Avg_Speed = newspeed;
+}
+
+void MeasureISS()
+{
+  unsigned long duration = pulseIn(ISS_Pin, HIGH);
+  double s;
+  float frequency = 1000000.0 / (1.0 * duration);
+  if (duration > 0)
+  {
+    s = 6.283185307 * (TireSize / 4.00) * (((frequency / ISS_Holes) * GearRatio) / 60) * .1;
+  }
+  else
+  {
+    s = 0;
+  }
+
+  if (s < 140 && s > 0)
+    ISS_Speeds[ISS_Speed_Count] = s;
+  else
+    ISS_Speeds[ISS_Speed_Count] = ISS_Avg_Speed;
+
+  if (ISS_Speed_Count < ISS_Smoothing - 1)
+    ISS_Speed_Count++;
+  else
+  {
+    ISS_Speed_Count = 0;
+  }
+
+  double newspeed = getDoubleAverage(ISS_Speeds, ISS_Smoothing);
+  ISS_Avg_Speed = newspeed;
+}
+
+void RegulateEPC()
+{
+  int PreviousEPCPWM = EPCPWM;
+  if (enableEPC)
+  {
+    if (Load_Avg < 0)
+    {
+      Load_Avg = 0;
+      if (loggingenabled)
+      {
+        Serial.println("RegulateEPC(): LOAD too LOW setting to 0 and continuing..");
+      }
+    }
+
+    if (shiftingTimer.isRunning)
+    {
+      EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
+
+      //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
+      double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
+      double predicted_pwm = epc_predict(features);
+      EPCPWM = predicted_pwm - shiftingPID.calculate(EPCSetpoint, EPCPressure);
+    }
+    else
+    {
+
+      EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
+
+      //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
+      double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
+      double predicted_pwm = epc_predict(features);
+      EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
+    }
+
+    EPCPWM = constrain(EPCPWM, 10, 210);
+
+    if (PreviousEPCPWM != EPCPWM)
+    {
+      analogWrite(EPC_PIN, EPCPWM);
+    }
+  }
+}
+
+void TCCLockup()
+{
+  if (shiftingTimer.isRunning || postShiftTimer.isRunning)
+  {
+    enabletcc = false;
+  }
+  else
+  {
+    if (CurrentGear == 4 && OSS_Avg_Speed > 50)
+    {
+      enabletcc = true;
+    }
+    else
+    {
+      enabletcc = false;
+    }
+  }
+  digitalWrite(TCC_PIN, enabletcc);
+}
+
+void ReceiveCanData(){
   while (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK)
   {
     if (canMsg.can_id == 1523)
@@ -306,143 +480,6 @@ void arduinoloop()
       mcp2515.sendMessage(&canMsg1);
     }
   }
-  SendCanData();
-
-  // PrintSerialData();
-}
-
-void MeasureSpeed()
-{
-  unsigned long duration = pulseIn(OSS_Pin, HIGH);
-  int s;
-  if (duration > 0)
-  {
-    float frequency = 1000000.0 / (1.0 * duration);
-    s = 6.283185307 * (TireSize / 4.00) * (((frequency / OSS_Holes) * GearRatio) / 60) * .1;
-  }
-  else
-  {
-    s = 0;
-  }
-
-  if (s < 140 && s > -1)
-    OSS_Speeds[OSS_Speed_Count] = s;
-  else
-    OSS_Speeds[OSS_Speed_Count] = OSS_Avg_Speed;
-
-  if (OSS_Speed_Count < OSS_Smoothing - 1)
-    OSS_Speed_Count++;
-  else
-  {
-    // for (int i = 0; i < OSS_Smoothing; i++)
-    // {
-    //   Serial.print(OSS_Speeds[i]);
-    //   Serial.print(",");
-    // }
-    // Serial.println("");
-    OSS_Speed_Count = 0;
-  }
-
-  double newspeed = getDoubleAverageWithoutExtremeValues(OSS_Speeds, OSS_Smoothing);
-  OSS_Avg_Speed = newspeed;
-}
-
-void MeasureISS()
-{
-  unsigned long duration = pulseIn(ISS_Pin, HIGH);
-  double s;
-  float frequency = 1000000.0 / (1.0 * duration);
-  if (duration > 0)
-  {
-    s = 6.283185307 * (TireSize / 4.00) * (((frequency / ISS_Holes) * GearRatio) / 60) * .1;
-  }
-  else
-  {
-    s = 0;
-  }
-
-  if (s < 140 && s > 0)
-    ISS_Speeds[ISS_Speed_Count] = s;
-  else
-    ISS_Speeds[ISS_Speed_Count] = ISS_Avg_Speed;
-
-  if (ISS_Speed_Count < ISS_Smoothing - 1)
-    ISS_Speed_Count++;
-  else
-  {
-    ISS_Speed_Count = 0;
-  }
-
-  double newspeed = getDoubleAverage(ISS_Speeds, ISS_Smoothing);
-  ISS_Avg_Speed = newspeed;
-}
-
-void RegulateEPC()
-{
-  int PreviousEPCPWM = EPCPWM;
-  if (enableEPC)
-  {
-    if (Load_Avg < 0)
-    {
-      Load_Avg = 0;
-      if (loggingenabled)
-      {
-        Serial.println("RegulateEPC(): LOAD too LOW setting to 0 and continuing..");
-      }
-    }
-
-    EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-
-    //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
-    double features[5] = {EPCSetpoint, rpmValue, OSS_Avg_Speed, CurrentGear, enginetemp};
-    double predicted_pwm = epc_predict(features);
-
-    if (shiftingTimer.isRunning)
-    {
-      EPCPWM = predicted_pwm;// - shiftingPID.calculate(EPCSetpoint, EPCPressure);
-    }
-    else
-    {
-      EPCPWM = predicted_pwm;// - inGearPID.calculate(EPCSetpoint, EPCPressure);
-    }
-
-    Serial.print("setpoint: ");
-    Serial.print(EPCSetpoint);
-
-    // Serial.print(", predicted_pwm: ");
-    // Serial.print(predicted_pwm);
-
-    Serial.print(", EPCPWM: ");
-    Serial.println(EPCPWM);
-
-
-    EPCPWM = constrain(EPCPWM, 10, 210);
-
-    if (PreviousEPCPWM != EPCPWM)
-    {
-      analogWrite(EPC_PIN, EPCPWM);
-    }
-  }
-}
-
-void TCCLockup()
-{
-  if (shiftingTimer.isRunning || postShiftTimer.isRunning)
-  {
-    enabletcc = false;
-  }
-  else
-  {
-    if (CurrentGear == 4 && OSS_Avg_Speed > 50)
-    {
-      enabletcc = true;
-    }
-    else
-    {
-      enabletcc = false;
-    }
-  }
-  digitalWrite(TCC_PIN, enabletcc);
 }
 
 void SendCanData()

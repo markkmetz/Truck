@@ -142,46 +142,8 @@ public:
   PID(double P, double I, double D)
       : Kp(P), Ki(I), Kd(D), pre_error(0), integral(0) {}
 
-  int calculate(double setpoint, double pv)
-  {
-    // Calculate error
-    double error = setpoint - pv;
-
-    // Proportional term
-    double Pout = Kp * error;
-
-    // clamping the Integral term
-
-    integral += error;
-
-    integral = constrain(integral, -1000, 1000);
-
-    double Iout = Ki * integral;
-
-    // Derivative term
-    double derivative = (error - pre_error);
-    double Dout = Kd * derivative;
-
-    // Calculate total output
-    int output = (int)Pout + Iout + Dout;
-
-    // Save error to next loop
-    pre_error = error;
-
-    // clamp the output
-
-    lastOutput = output;
-    output = constrain(output, 0, 255);
-
-    return output;
-  }
-
-  void clear()
-  {
-    integral = 0;
-    pre_error = 0;
-    lastOutput = 0;
-  }
+  int calculate(double setpoint, double pv);
+  void clear();
 };
 
 class TCCTimer : public Timer
@@ -219,6 +181,7 @@ extern int EPCPressure;
 extern int EPCPWM;
 extern int EPCSetpoint;
 extern int rpmValue;
+extern int enginetemp;
 
 extern bool tccTimer;
 extern bool shifting;
@@ -233,6 +196,7 @@ extern const byte EPC_PRESSURE_PIN;
 extern ShiftingTimer shiftingTimer;
 extern Timer postShiftTimer;
 extern PID shiftingPID;
+extern PID inGearPID;
 
 void arduinosetup();
 void arduinoloop();
@@ -248,6 +212,7 @@ void splitIntoTwoBytes(int value, byte &byte1, byte &byte2);
 void CheckShift();
 void MeasurePressures();
 void Shift();
+void ReceiveCanData();
 int CalculateGear();
 double CalcShiftValue(int cname, double load);
 double CalcPressureValue(Curve curve, double load);

@@ -34,14 +34,25 @@ void MockSerial::println(double num)
 }
 void MockSerial::println(String s)
 {
-    // Initialize serial communication with the given baud rate
+    std::cout << s << " \n";
 }
 void MockSerial::print(uint32_t u){
-
+    //std::cout << u;
 }
 
 void MockSerial::print(String u){
     
+}
+
+
+double constrain(double amt, double low, double high)
+{
+    if (amt < low)
+        return low;
+    else if (amt > high)
+        return high;
+    else
+        return amt;
 }
 
 void MockSerial::begin(int i){

@@ -17,7 +17,7 @@ int main()
   CalcShiftValue_Test();
   RegulateEPC_Test();
   //This takes a while. and can be detected as a virus.
-  //epc_predict_Test();
+  epc_predict_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;
@@ -28,14 +28,14 @@ void epc_predict_Test(){
 
   int max = 0;
   int min = 100;
-  for(int epcpsi = 10; epcpsi < 100; epcpsi++){
-    for(int rpm = 500; rpm < 4000; rpm = rpm++){
-      for(int mph = 1; mph < 100; mph++){
-        for(int gear = 1; gear < 5; gear++){
-          for(int temp = 1; temp < 200; temp++){
+  for(double epcpsi = 10; epcpsi < 100; epcpsi++){
+    for(double rpm = 500; rpm < 4000; rpm = rpm++){
+      for(double mph = 1; mph < 100; mph++){
+        for(double gear = 1; gear < 5; gear++){
+          for(double temp = 1; temp < 200; temp++){
             double values[5] {epcpsi,rpm,mph,gear,temp};
 
-            int x = epc_predict(values);
+            double x = epc_predict(values);
 
             if( x < min)
               min = x;
@@ -108,16 +108,19 @@ void RegulateEPC_Test()
 {
 
 
-  EPCPressure = EPCSetpoint + 1;
+  EPCPressure = 80;
   shiftingTimer.isRunning = false;
   shiftingPID.clear();
 
   for (int i = 0; i < 100; i++)
   {
-    Load_Avg = i;
+    Load_Avg = 50;
+    rpmValue = 800; 
+    OSS_Avg_Speed = 0;
+    CurrentGear = 1;
+    enginetemp = 180;
+
     RegulateEPC();
-    //std::cout << EPCPWM;
-    //std::cout << " \n";
   }
   // shiftingTimer.isRunning = True;
 };

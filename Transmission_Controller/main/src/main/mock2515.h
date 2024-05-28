@@ -7,11 +7,8 @@
 #include <iostream>
 #include <chrono>
 
-
 typedef uint8_t byte;
 typedef std::string String;
-
-
 
 struct can_frame
 {
@@ -20,13 +17,15 @@ struct can_frame
     int data[8];
 };
 
-enum CAN_CLOCK {
+enum CAN_CLOCK
+{
     MCP_20MHZ,
     MCP_16MHZ,
     MCP_8MHZ
 };
 
-enum CAN_SPEED {
+enum CAN_SPEED
+{
     CAN_5KBPS,
     CAN_10KBPS,
     CAN_20KBPS,
@@ -78,35 +77,28 @@ public:
     void print(String s);
 };
 
-
-static uint32_t pulseIn(int i, byte j){
+static uint32_t pulseIn(int i, byte j)
+{
     return 0;
 }
+double constrain(double amt, double low, double high);
 
-static double constrain(double amt, double low, double high){
-    if(amt < low)
-    return low;
-    else if(amt >  high)
-    return high;
-    else return amt;
-}
-
-#define PIN_A0   (54)
-#define PIN_A1   (55)
-#define PIN_A2   (56)
-#define PIN_A3   (57)
-#define PIN_A4   (58)
-#define PIN_A5   (59)
-#define PIN_A6   (60)
-#define PIN_A7   (61)
-#define PIN_A8   (62)
-#define PIN_A9   (63)
-#define PIN_A10  (64)
-#define PIN_A11  (65)
-#define PIN_A12  (66)
-#define PIN_A13  (67)
-#define PIN_A14  (68)
-#define PIN_A15  (69)
+#define PIN_A0 (54)
+#define PIN_A1 (55)
+#define PIN_A2 (56)
+#define PIN_A3 (57)
+#define PIN_A4 (58)
+#define PIN_A5 (59)
+#define PIN_A6 (60)
+#define PIN_A7 (61)
+#define PIN_A8 (62)
+#define PIN_A9 (63)
+#define PIN_A10 (64)
+#define PIN_A11 (65)
+#define PIN_A12 (66)
+#define PIN_A13 (67)
+#define PIN_A14 (68)
+#define PIN_A15 (69)
 
 static const uint8_t A0 = PIN_A0;
 static const uint8_t A1 = PIN_A1;
@@ -124,8 +116,6 @@ static const uint8_t A12 = PIN_A12;
 static const uint8_t A13 = PIN_A13;
 static const uint8_t A14 = PIN_A14;
 static const uint8_t A15 = PIN_A15;
-
-
 
 /*!
  *  \addtogroup mock
@@ -156,7 +146,7 @@ static uint16_t digitalRead(uint8_t pin)
  Value is either HIGH or LOW.
  */
 //-----------------------------------------------------------------
-static void digitalWrite(uint8_t pin, uint8_t value){};
+static void digitalWrite(uint8_t pin, uint8_t value) {};
 
 //-----------------------------------------------------------------
 /*!
@@ -167,7 +157,7 @@ static void digitalWrite(uint8_t pin, uint8_t value){};
  Sets the mode to INPUT, OUTPUT, or INPUT_PULLUP.
  */
 //-----------------------------------------------------------------
-static void pinMode(uint8_t pin, uint8_t mode){};
+static void pinMode(uint8_t pin, uint8_t mode) {};
 
 //------------------ Arduino Analog I/O ---------------------------
 
@@ -193,7 +183,7 @@ static uint16_t analogRead(uint8_t pin)
  The duty cycle: between 0 (off) and 255 (on).
  */
 //-----------------------------------------------------------------
-static void analogWrite(uint8_t pin, uint16_t value){};
+static void analogWrite(uint8_t pin, uint16_t value) {};
 
 // --------------------- Arduino Time -----------------------------
 
@@ -294,7 +284,7 @@ static uint16_t read(uint16_t address)
  The value (byte) to write at that address.
  */
 //-----------------------------------------------------------------
-static void write(uint16_t address, uint16_t value){};
+static void write(uint16_t address, uint16_t value) {};
 
 //-----------------------------------------------------------------
 /*!
@@ -305,7 +295,7 @@ static void write(uint16_t address, uint16_t value){};
  The value to write (byte), if different at that address.
  */
 //-----------------------------------------------------------------
-static void update(uint16_t address, uint16_t value){};
+static void update(uint16_t address, uint16_t value) {};
 
 //-----------------------------------------------------------------
 /*!
@@ -331,7 +321,7 @@ static uint16_t get(uint16_t address, uint16_t data)
  Write data to EEPROM address.
  */
 //-----------------------------------------------------------------
-static void put(uint16_t address, uint16_t data){};
+static void put(uint16_t address, uint16_t data) {};
 
 //-----------------------------------------------------------------
 /*!
