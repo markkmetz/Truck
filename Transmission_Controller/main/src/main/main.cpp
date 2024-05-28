@@ -367,7 +367,7 @@ void RegulateEPC()
       // double predicted_pwm = epc_predict(features);
       //EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
 
-      EPCPWM = 122 - InGearPids[CurrentGear].calculate(EPCSetpoint,EPCPressure);
+      EPCPWM = 122 - InGearPids[CurrentGear -1 ].calculate(EPCSetpoint,EPCPressure);
     }
 
     EPCPWM = constrain(EPCPWM, 50, 200);
@@ -601,7 +601,7 @@ Serial.print((int)InGearPids[1].lastOutput);
 Serial.print(",3rd:");
 Serial.print((int)InGearPids[2].lastOutput);
 Serial.print(",4th:");
-Serial.print((int)InGearPids[3].lastOutput);
+Serial.println((int)InGearPids[3].lastOutput);
 
 }
 
