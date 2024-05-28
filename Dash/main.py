@@ -57,6 +57,7 @@ values = {
 'Voltage':0,
 'MPH' : 0,
 'EPCPSI' : 0,
+'EPCSetPoint' : 0,
 'ShiftMode' : 0,
 'EPCPWM':0,
 'Gear' : 0,
@@ -210,7 +211,7 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['ShiftMode'] = canMsg.data[0]
                     values['EPCPSI'] = round(canMsg.data[3] | (canMsg.data[2] << 8))
                     values['EPCPWM'] = canMsg.data[4]
-                    #values['epcSetPointValue'] = canMsg.data[1]    5 
+                    values['EPCSetPoint'] = canMsg.data[5]
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = round(canMsg.data[7]/0.255)
                     #update the chart?
