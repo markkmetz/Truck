@@ -17,7 +17,7 @@ int main()
   CalcShiftValue_Test();
   RegulateEPC_Test();
   //This takes a while. and can be detected as a virus.
-  epc_predict_Test();
+  //epc_predict_Test();
 
   std::cout << "All tests passed!" << std::endl;
   return 0;

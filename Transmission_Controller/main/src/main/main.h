@@ -24,15 +24,6 @@ enum CurveName
   FourthDown = 5
 };
 
-struct Curve
-{
-  CurveName curvename;
-  int shiftPoints[11];
-  int pressurePoints[11];
-  int PressureInGearSetpoint;
-  int shiftLengthScaler; // Not used yet
-};
-
 class Timer
 {
 private:
@@ -112,19 +103,6 @@ public:
   }
 };
 
-class ShiftingTimer : public Timer
-{
-  using Timer::Timer;
-
-public:
-  Curve ShiftCurve;
-
-  void start(int length, Curve curve)
-  {
-    ShiftCurve = curve;
-    Timer::start(length);
-  }
-};
 
 class PID
 {
@@ -135,7 +113,6 @@ private:
 
   double pre_error;
   double integral;
-  double lastOutput;
 
 public:
   // Constructor
@@ -144,6 +121,7 @@ public:
 
   int calculate(double setpoint, double pv);
   void clear();
+  double lastOutput;
 };
 
 class TCCTimer : public Timer
@@ -162,6 +140,32 @@ private:
     Timer::Run();
   }
 };
+
+
+struct Curve
+{
+  CurveName curvename;
+  int shiftPoints[11];
+  int pressurePoints[11];
+  int PressureInGearSetpoint;
+  int shiftLengthScaler; // Not used yet
+};
+
+
+class ShiftingTimer : public Timer
+{
+  using Timer::Timer;
+
+public:
+  Curve ShiftCurve;
+
+  void start(int length, Curve curve)
+  {
+    ShiftCurve = curve;
+    Timer::start(length);
+  }
+};
+
 
 extern Curve bettercurves[6];
 
