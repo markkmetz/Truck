@@ -392,12 +392,29 @@ void RegulateEPC()
     }
 
     EPCSetpoint = CalcPressureValue(shiftingTimer.ShiftCurve, Load_Avg);
-    
+
     //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
     double features[5] = {EPCSetpoint, rpmValue, OSS_Avg_Speed, CurrentGear, enginetemp};
     double predicted_pwm = epc_predict(features);
 
-    EPCPWM = predicted_pwm - shiftingPID.calculate(EPCSetpoint, EPCPressure);
+    if (shiftingTimer.isRunning)
+    {
+      EPCPWM = predicted_pwm;// - shiftingPID.calculate(EPCSetpoint, EPCPressure);
+    }
+    else
+    {
+      EPCPWM = predicted_pwm;// - inGearPID.calculate(EPCSetpoint, EPCPressure);
+    }
+
+    Serial.print("setpoint: ");
+    Serial.print(EPCSetpoint);
+
+    // Serial.print(", predicted_pwm: ");
+    // Serial.print(predicted_pwm);
+
+    Serial.print(", EPCPWM: ");
+    Serial.println(EPCPWM);
+
 
     EPCPWM = constrain(EPCPWM, 10, 210);
 
