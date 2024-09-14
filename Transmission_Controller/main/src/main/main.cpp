@@ -66,10 +66,11 @@ enum ShiftMode
 Curve bettercurves[6] = {
     {FirstUP, {3, 3, 3, 4, 4, 4, 6, 7, 11, 17, 28}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 500},
     {SecondDown, {1, 1, 1, 2, 2, 2, 2, 2, 3, 6, 12}, {10, 10, 10, 10, 10, 20, 20, 20, 30, 30, 40}, 40, 500},
-    {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 40, 500},
+    {SecondUp, {14, 11, 12, 15, 21, 27, 33, 40, 48, 58, 68}, {10, 10, 12, 15, 21, 27, 33, 40, 48, 58, 68}, 50, 500},
     {ThirdDown, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, {8, 8, 9, 9, 9, 11, 13, 15, 20, 28, 47}, 40, 1000},
     {ThirdUp, {30, 29, 31, 41, 51, 60, 75, 85, 93, 100, 100}, {27, 28, 31, 31, 35, 42, 50, 60, 70, 80, 90}, 50, 1000},
     {FourthDown, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, {20, 20, 23, 30, 39, 47, 55, 60, 66, 74, 79}, 50, 1000}};
+
 
 PID ShiftingPids[6] = {
     PID(.05, .05, .05),
@@ -158,7 +159,7 @@ double Load_Avg = 0;
 int FuelLevel;
 int OilPressure;
 int EPCPressure;
-int EPCPWM = 0;
+int EPCPWM = 40;
 int rpmValue;
 int enginetemp;
 
@@ -359,18 +360,11 @@ void RegulateEPC()
     }
     else
     {
-
       EPCSetpoint = shiftingTimer.ShiftCurve.PressureInGearSetpoint;
-
-      //['EPCPSI' 'RPM' 'MPH' 'Gear' 'Temp']
-      // double features[5] = {(double)EPCSetpoint, (double)rpmValue, (double)OSS_Avg_Speed, (double)CurrentGear, (double)enginetemp};
-      // double predicted_pwm = epc_predict(features);
-      //EPCPWM = predicted_pwm - inGearPID.calculate(EPCSetpoint, EPCPressure);
-
       EPCPWM = 122 - InGearPids[CurrentGear -1 ].calculate(EPCSetpoint,EPCPressure);
     }
 
-    EPCPWM = constrain(EPCPWM, 50, 200);
+    EPCPWM = constrain(EPCPWM, 0, 200);
 
     if (PreviousEPCPWM != EPCPWM)
     {
@@ -527,16 +521,20 @@ void SendCanData()
     canMsg3.data[7] = constrain(FuelLevel / 4.01, 0, 255);
     mcp2515.sendMessage(&canMsg3);
 
-    // struct can_frame canMsg4;
-    // canMsg3.can_id = 1803;
-    // canMsg3.can_dlc = 6;
-    // canMsg3.data[0] = (int)ShiftingPids[0].lastOutput;
-    // canMsg3.data[1] = (int)ShiftingPids[1].lastOutput;
-    // canMsg3.data[2] = (int)ShiftingPids[2].lastOutput;
-    // canMsg3.data[3] = (int)ShiftingPids[3].lastOutput;
-    // canMsg3.data[4] = (int)ShiftingPids[4].lastOutput;
-    // canMsg3.data[5] = (int)ShiftingPids[5].lastOutput;
-    // mcp2515.sendMessage(&canMsg4);
+    struct can_frame canMsg4;
+    canMsg3.can_id = 1803;
+    canMsg3.can_dlc = 10;
+    canMsg3.data[0] = (int)ShiftingPids[0].lastOutput;
+    canMsg3.data[1] = (int)ShiftingPids[1].lastOutput;
+    canMsg3.data[2] = (int)ShiftingPids[2].lastOutput;
+    canMsg3.data[3] = (int)ShiftingPids[3].lastOutput;
+    canMsg3.data[4] = (int)ShiftingPids[4].lastOutput;
+    canMsg3.data[5] = (int)ShiftingPids[5].lastOutput;
+    canMsg3.data[6] = (int)InGearPids[0].lastOutput;
+    canMsg3.data[7] = (int)InGearPids[1].lastOutput;
+    canMsg3.data[8] = (int)InGearPids[2].lastOutput;
+    canMsg3.data[9] = (int)InGearPids[3].lastOutput;
+    mcp2515.sendMessage(&canMsg4);
 
     lastwritetime = millis();
   }

@@ -47,6 +47,20 @@ xl_font = ttk.font.Font(family='Helvetica', size=30, weight='bold')
 med_font = ttk.font.Font(size=15)
 small_font = ttk.font.Font(size=8)
 
+                # elif canMsg.arbitration_id == 1803:
+                #     values['FirstUP'] = canMsg.data[0]
+                #     values['SecondDown'] = canMsg.data[1]
+                #     values['SecondUp'] = canMsg.data[2]
+                #     values['ThirdDown'] = canMsg.data[3]
+                #     values['ThirdUp'] = canMsg.data[4]
+                #     values['FourthDown'] = canMsg.data[5]
+
+                # elif canMsg.arbitration_id == 1804:
+                #     values['FirstPID'] = canMsg.data[0]
+                #     values['SecondPID'] = canMsg.data[1]
+                #     values['ThirdPID'] = canMsg.data[2]
+                #     values['FourthPID'] = canMsg.data[3]
+
 
 values = {
 'RPM' : 0,
@@ -65,7 +79,20 @@ values = {
 'Fuel': 0,
 'Oil' : 0,
 'Odometer' : 0.0000,
-'Tripometer' : 0.00000
+'Tripometer' : 0.00000,
+
+'FirstUP': 0,
+'SecondDown': 0,
+'SecondUp': 0,
+'ThirdDown': 0,
+'ThirdUp': 0,
+'FourthDown': 0,
+
+'FirstPID': 0,
+'SecondPID': 0,
+'ThirdPID': 0,
+'FourthPID': 0
+
 }
 
 meters = {}
@@ -214,8 +241,20 @@ def receive_can_messages(values,bus,LastMessageTime,out_q):
                     values['EPCSetPoint'] = canMsg.data[5]
                     #values['ISS'] = canMsg.data[6 ]                6
                     values['Fuel'] = round(canMsg.data[7]/0.255)
-                    #update the chart?
-                    #meters['cnv'].draw()
+
+                elif canMsg.arbitration_id == 1803:
+                    values['FirstUP'] = canMsg.data[0]
+                    values['SecondDown'] = canMsg.data[1]
+                    values['SecondUp'] = canMsg.data[2]
+                    values['ThirdDown'] = canMsg.data[3]
+                    values['ThirdUp'] = canMsg.data[4]
+                    values['FourthDown'] = canMsg.data[5]
+
+                elif canMsg.arbitration_id == 1804:
+                    values['FirstPID'] = canMsg.data[0]
+                    values['SecondPID'] = canMsg.data[1]
+                    values['ThirdPID'] = canMsg.data[2]
+                    values['FourthPID'] = canMsg.data[3]
 
                 #steeringwheel
                 elif canMsg.arbitration_id == 1601:
